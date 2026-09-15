@@ -1,0 +1,113 @@
+import React, { useState } from 'react';
+import { Lock, ShieldCheck, User, KeyRound, AlertCircle } from 'lucide-react';
+import { authStore, type UserAccount } from '../auth/authStore';
+
+interface AdminLoginGateProps {
+  onAuthenticated: (user: UserAccount) => void;
+}
+
+export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onAuthenticated }) => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    const res = authStore.login(username, password);
+    if (res.success && res.user) {
+      onAuthenticated(res.user);
+    } else {
+      setError(res.error || 'Authentication failed.');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4 font-sans selection:bg-blue-600 selection:text-white">
+      <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
+        <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-600/15 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Brand Header */}
+        <div className="flex flex-col items-center text-center space-y-3 mb-6">
+          <img
+            src="/epic-logo.png"
+            alt="EPIC Logo"
+            className="w-16 h-16 rounded-2xl shadow-xl border border-blue-500/30 object-cover"
+          />
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-white uppercase">EPIC SPORTS</h1>
+            <p className="text-xs font-bold text-amber-400 tracking-wider uppercase mt-0.5">powered by Kezjed</p>
+            <p className="text-[11px] text-slate-400 font-semibold mt-1">Official Tournament Desk Access Gate</p>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1.5">Username</label>
+            <div className="relative">
+              <input
+                type="text"
+                required
+                autoFocus
+                placeholder="e.g. admin or scorer1"
+                value={username}
+                onChange={(e) => {
+                  setUsername(e.target.value);
+                  setError('');
+                }}
+                className="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none transition font-semibold"
+              />
+              <User className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1.5">Password</label>
+            <div className="relative">
+              <input
+                type="password"
+                required
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError('');
+                }}
+                className="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none transition font-semibold"
+              />
+              <KeyRound className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
+            </div>
+            {error && (
+              <p className="text-red-400 text-xs font-semibold flex items-center gap-1.5 mt-2">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {error}
+              </p>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            className="w-full bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black py-3 rounded-2xl text-xs uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-blue-950/60"
+          >
+            <ShieldCheck className="w-4 h-4" /> Authenticate & Unlock Table
+          </button>
+        </form>
+
+        {/* Credentials Reminder */}
+        <div className="mt-4 p-3 bg-slate-950/60 border border-slate-800/80 rounded-xl text-center text-[11px] text-slate-400">
+          Initial Default: Username: <strong className="text-white">admin</strong> • Password: <strong className="text-white">2026</strong>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-6 pt-4 border-t border-slate-800 text-center space-y-1.5">
+          <p className="text-[10px] text-slate-400 italic">
+            "I can do all things through Christ who strengthens me." <span className="text-amber-400/90 font-semibold not-italic">— Philippians 4:13</span>
+          </p>
+          <p className="text-[9px] text-slate-500 uppercase tracking-widest font-semibold">
+            Registered Trademark by <span className="text-slate-400">Kezjed Solutions</span>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
