@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Lock, ShieldCheck, User, KeyRound, AlertCircle } from 'lucide-react';
+import { ShieldCheck, User, KeyRound, AlertCircle } from 'lucide-react';
 import { authStore, type UserAccount } from '../auth/authStore';
 
 interface AdminLoginGateProps {

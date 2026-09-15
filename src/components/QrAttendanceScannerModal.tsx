@@ -54,7 +54,7 @@ export const QrAttendanceScannerModal: React.FC<QrAttendanceScannerModalProps> =
 
     let isSubscribed = true;
     let isPausedForCelebration = false;
-    let resetTimeout: NodeJS.Timeout | null = null;
+    let resetTimeout: number | null = null;
 
     setSuccessPlayer(null);
     setIsLoading(true);

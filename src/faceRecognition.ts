@@ -119,6 +119,11 @@ class FaceRecognitionEngine {
     return detection ? Array.from(detection.descriptor) : null;
   }
 
+  // Alias for compatibility with modal code
+  async extractDescriptorFromImage(input: HTMLImageElement | HTMLVideoElement): Promise<number[] | null> {
+    return this.extractDescriptor(input);
+  }
+
   initializeMatcher(roster: RosterVector[], distanceThreshold: number = DEFAULT_DISTANCE_THRESHOLD) {
     const labeledDescriptors: faceapi.LabeledFaceDescriptors[] = [];
 
@@ -134,6 +139,12 @@ class FaceRecognitionEngine {
     } else {
       this.faceMatcher = null;
     }
+  }
+
+  // Quick live match helper returning just the matched ID or null
+  async recognizeLiveFace(video: HTMLVideoElement): Promise<string | null> {
+    const result = await this.scanLiveFrame(video, true);
+    return result.matchedId;
   }
 
   async scanLiveFrame(
@@ -177,7 +188,6 @@ class FaceRecognitionEngine {
       }
     }
 
-    // Adaptive threshold: a blink is when EAR drops below 75% of baseline (or an absolute floor of 0.28)
     const dynamicThreshold = this.baselineEAR ? Math.max(this.baselineEAR * 0.75, 0.22) : 0.28;
     const isBlinking = avgEAR < dynamicThreshold;
 
@@ -190,7 +200,6 @@ class FaceRecognitionEngine {
       };
     }
 
-    // If currently blinking, register blink event
     if (isBlinking && !hasBlinked) {
       return {
         matchedId: null,
@@ -200,7 +209,6 @@ class FaceRecognitionEngine {
       };
     }
 
-    // Compare biometric vectors
     const bestMatch = this.faceMatcher.findBestMatch(detection.descriptor);
     const isMatched = bestMatch.label !== 'unknown';
 
@@ -216,4 +224,6 @@ class FaceRecognitionEngine {
   }
 }
 
-export const faceEngine = new FaceRecognitionEngine();
+// Exported as faceService so all components importing it will resolve successfully
+export const faceService = new FaceRecognitionEngine();
+export const faceEngine = faceService;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { supabase } from './supabaseClient';
 import { arenaAudio } from './audioEngine';
@@ -174,7 +174,7 @@ export default function App() {
   const [gameSeconds, setGameSeconds] = useState(DEFAULT_SETTINGS.quarterMinutes * 60);
   const [shotClock, setShotClock] = useState(DEFAULT_SETTINGS.shotClockSeconds);
   const [isClockRunning, setIsClockRunning] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
     async function loadBiometrics() {

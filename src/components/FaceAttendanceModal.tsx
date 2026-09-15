@@ -38,7 +38,7 @@ export const FaceAttendanceModal: React.FC<FaceAttendanceModalProps> = ({
     if (!isOpen) return;
 
     let isScanning = true;
-    let scanInterval: NodeJS.Timeout | null = null;
+    let scanInterval: number | null = null;
 
     async function setupCameraAndRecognition() {
       try {
@@ -47,7 +47,7 @@ export const FaceAttendanceModal: React.FC<FaceAttendanceModalProps> = ({
 
         const rosterData = players
           .filter(p => p.descriptor)
-          .map(p => ({ id: p.id, name: p.name, descriptor: p.descriptor! }));
+          .map(p => ({ id: p.id, name: p.name, jersey: p.jersey, descriptor: p.descriptor! }));
         
         faceService.initializeMatcher(rosterData);
 
@@ -63,7 +63,7 @@ export const FaceAttendanceModal: React.FC<FaceAttendanceModalProps> = ({
 
         setStatusText('Look directly at the camera to check in...');
 
-        scanInterval = setInterval(async () => {
+        scanInterval = window.setInterval(async () => {
           if (!videoRef.current || !isScanning) return;
 
           const matchedPlayerId = await faceService.recognizeLiveFace(videoRef.current);
@@ -98,23 +98,24 @@ export const FaceAttendanceModal: React.FC<FaceAttendanceModalProps> = ({
       if (scanInterval) clearInterval(scanInterval);
       stopCamera();
     };
-  }, [isOpen]);
+  }, [isOpen, players, onPlayerVerified]);
 
   const handleEnrollCurrentFace = async () => {
     if (!videoRef.current) return;
     setIsEnrolling(true);
-    setStatusText('Capturing face vector for Player #24...');
+    setStatusText('Capturing face vector for Player...');
     
     try {
       const detection = await faceService.extractDescriptorFromImage(videoRef.current as unknown as HTMLImageElement);
       
       if (detection) {
-        const target = players.find(p => p.id === 'p1');
+        const target = players.find(p => p.id === 'p1') || players[0];
         if (target) {
           target.descriptor = detection;
           faceService.initializeMatcher(players.filter(p => p.descriptor).map(p => ({
             id: p.id,
             name: p.name,
+            jersey: p.jersey,
             descriptor: p.descriptor!
           })));
           setStatusText('Face enrolled! Now looking for matches...');
@@ -138,13 +139,13 @@ export const FaceAttendanceModal: React.FC<FaceAttendanceModalProps> = ({
           <h3 className="font-bold text-base text-white flex items-center gap-2">
             <ScanFace className="w-5 h-5 text-amber-400" /> Scorer Desk Face ID Kiosk
           </h3>
-          <button onClick={handleClose} className="text-slate-400 hover:text-white cursor-pointer">
+          <button type="button" onClick={handleClose} className="text-slate-400 hover:text-white cursor-pointer">
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Live Camera Viewport with Facial Reticle */}
-        <div className="relative w-full aspect-4/3 rounded-2xl overflow-hidden bg-slate-950 border border-slate-700 flex items-center justify-center">
+        <div className="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-slate-950 border border-slate-700 flex items-center justify-center">
           <video 
             ref={videoRef} 
             muted 
@@ -178,7 +179,7 @@ export const FaceAttendanceModal: React.FC<FaceAttendanceModalProps> = ({
           className="w-full bg-slate-800 hover:bg-slate-700 active:scale-95 disabled:opacity-50 text-amber-400 font-bold py-2.5 rounded-xl text-xs border border-slate-700 cursor-pointer flex items-center justify-center gap-2 transition"
         >
           <UserCheck className="w-4 h-4" />
-          {isEnrolling ? 'Enrolling Face...' : 'Enroll Current Camera Face as #24 Ronnel Aviguetero'}
+          {isEnrolling ? 'Enrolling Face...' : 'Enroll Current Camera Face'}
         </button>
       </div>
     </div>

@@ -50,9 +50,8 @@ export const FaceLivenessScannerModal: React.FC<FaceLivenessScannerModalProps> =
   useEffect(() => {
     if (!isOpen) return;
 
-    let isScanning = true;
-    let scanTimeout: NodeJS.Timeout | null = null;
-    let resetTimeout: NodeJS.Timeout | null = null;
+    let isScanning = true;let scanTimeout: number | null = null;
+let resetTimeout: number | null = null;
     let blinkedFlag = false;
     let pausedForCelebration = false;
 

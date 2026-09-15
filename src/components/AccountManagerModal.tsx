@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, UserCheck, KeyRound, UserPlus, Trash2, Shield, User } from 'lucide-react';
+import { X, KeyRound, UserPlus, Trash2, Shield, User } from 'lucide-react';
 import { authStore, type UserAccount, type UserRole } from '../auth/authStore';
 
 interface AccountManagerModalProps {
