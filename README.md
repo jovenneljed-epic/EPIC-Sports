@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # React + TypeScript + Vite
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
@@ -73,3 +74,7 @@ export default defineConfig([
 ])
 
 ```
+=======
+# EPIC-Sports
+This system is designed for Epic official Sports tournament only!
+>>>>>>> 005bf960b8cad6736370f22d9f5edcaa2b450144
