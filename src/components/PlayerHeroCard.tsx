@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trophy, Award, Zap, Shield } from 'lucide-react';
+import { Trophy, Zap } from 'lucide-react';
 import { type PlayerStatSummary } from '../types/stats';
 
 interface PlayerHeroCardProps {
