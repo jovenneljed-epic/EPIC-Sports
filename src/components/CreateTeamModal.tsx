@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus, Trash2, ShieldCheck, Users, Edit3 } from 'lucide-react';
-import type { Team, Player } from '../App';
+import type { Team, Player, SportType } from '../App';
 
 interface TeamModalProps {
   isOpen: boolean;
@@ -18,6 +18,12 @@ interface TempPlayer {
   descriptor?: number[];
 }
 
+export const SPORT_POSITIONS: Record<SportType, string[]> = {
+  basketball: ['PG', 'SG', 'SF', 'PF', 'C'],
+  volleyball: ['OH', 'OPP', 'MB', 'S', 'L', 'DS'],
+  badminton: ['Singles', 'Doubles (Front)', 'Doubles (Back)', 'All-Rounder'],
+};
+
 const COLOR_OPTIONS = [
   { label: 'Sunset Amber', value: 'from-amber-600 to-orange-600' },
   { label: 'Royal Blue', value: 'from-blue-600 to-cyan-600' },
@@ -33,6 +39,7 @@ export const CreateTeamModal: React.FC<TeamModalProps> = ({
   onSaveTeam,
   initialTeam,
 }) => {
+  const [sportType, setSportType] = useState<SportType>('basketball');
   const [teamName, setTeamName] = useState('');
   const [coachName, setCoachName] = useState('');
   const [selectedColor, setSelectedColor] = useState(COLOR_OPTIONS[0].value);
@@ -40,6 +47,8 @@ export const CreateTeamModal: React.FC<TeamModalProps> = ({
 
   useEffect(() => {
     if (initialTeam) {
+      const activeSport = initialTeam.sportType || 'basketball';
+      setSportType(activeSport);
       setTeamName(initialTeam.name);
       setCoachName(initialTeam.coachName || '');
       setSelectedColor(initialTeam.color);
@@ -48,12 +57,13 @@ export const CreateTeamModal: React.FC<TeamModalProps> = ({
           id: p.id,
           name: p.name,
           jersey: p.jersey,
-          position: p.position,
+          position: p.position || SPORT_POSITIONS[activeSport][0],
           qrPassId: p.qrPassId,
           descriptor: p.descriptor,
         }))
       );
     } else {
+      setSportType('basketball');
       setTeamName('');
       setCoachName('');
       setSelectedColor(COLOR_OPTIONS[0].value);
@@ -69,8 +79,23 @@ export const CreateTeamModal: React.FC<TeamModalProps> = ({
 
   if (!isOpen) return null;
 
+  const handleSportTypeChange = (newSport: SportType) => {
+    setSportType(newSport);
+    const defaultPos = SPORT_POSITIONS[newSport][0];
+    setPlayers((prev) =>
+      prev.map((player) => ({
+        ...player,
+        position: defaultPos,
+      }))
+    );
+  };
+
   const handleAddPlayerSlot = () => {
-    setPlayers((prev) => [...prev, { name: '', jersey: prev.length + 1, position: 'PG' }]);
+    const nextJersey = players.length > 0 ? Math.max(...players.map((p) => p.jersey || 0)) + 1 : 1;
+    setPlayers((prev) => [
+      ...prev,
+      { name: '', jersey: nextJersey, position: SPORT_POSITIONS[sportType][0] },
+    ]);
   };
 
   const handleRemovePlayerSlot = (index: number) => {
@@ -103,7 +128,7 @@ export const CreateTeamModal: React.FC<TeamModalProps> = ({
         id: p.id || `p_${teamId}_${Date.now()}_${idx}`,
         name: p.name.trim(),
         jersey: Number(p.jersey) || idx + 1,
-        position: p.position || 'PG',
+        position: p.position || SPORT_POSITIONS[sportType][0],
         teamId: teamId,
         qrPassId:
           p.qrPassId ||
@@ -119,6 +144,7 @@ export const CreateTeamModal: React.FC<TeamModalProps> = ({
     const savedTeam: Team = {
       id: teamId,
       name: teamName.trim(),
+      sportType,
       coachName: coachName.trim() || 'Head Coach',
       color: selectedColor,
       players: validPlayers,
@@ -146,7 +172,7 @@ export const CreateTeamModal: React.FC<TeamModalProps> = ({
               <h2 className="text-lg font-black uppercase tracking-tight">
                 {initialTeam ? `Edit Franchise: ${initialTeam.name}` : 'Register New Franchise'}
               </h2>
-              <p className="text-xs font-semibold opacity-90">Modify coach, color accents, and player details</p>
+              <p className="text-xs font-semibold opacity-90">Designate sport classification, coach, and roster</p>
             </div>
           </div>
           <button type="button" onClick={onClose} className="p-1.5 rounded-full bg-black/10 hover:bg-black/30 cursor-pointer">
@@ -156,13 +182,32 @@ export const CreateTeamModal: React.FC<TeamModalProps> = ({
 
         {/* Scrollable Form */}
         <form onSubmit={handleSubmit} className="p-6 overflow-y-auto space-y-6 flex-1 text-xs">
+          {/* Sport Classification Selector */}
+          <div className="bg-slate-950 border border-slate-800 p-4 rounded-2xl space-y-2">
+            <label className="block text-[11px] font-black text-amber-400 uppercase tracking-wider">
+              Step 1: Choose Sport Classification *
+            </label>
+            <select
+              value={sportType}
+              onChange={(e) => handleSportTypeChange(e.target.value as SportType)}
+              className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-white font-bold text-sm focus:outline-none focus:border-amber-400"
+            >
+              <option value="basketball">Basketball</option>
+              <option value="volleyball">Volleyball</option>
+              <option value="badminton">Badminton</option>
+            </select>
+            <p className="text-[10px] text-slate-500">
+              Roster positions below adapt automatically to {sportType}.
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Franchise Name *</label>
               <input
                 type="text"
                 required
-                placeholder="e.g. Manila Metros"
+                placeholder="e.g. Manila Spikers"
                 value={teamName}
                 onChange={(e) => setTeamName(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-400 font-semibold"
@@ -172,7 +217,7 @@ export const CreateTeamModal: React.FC<TeamModalProps> = ({
               <label className="block text-[11px] font-bold text-slate-300 uppercase mb-1">Head Coach</label>
               <input
                 type="text"
-                placeholder="e.g. Coach Tim Cone"
+                placeholder="e.g. Coach Silva"
                 value={coachName}
                 onChange={(e) => setCoachName(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white focus:outline-none focus:border-amber-400 font-semibold"
@@ -201,7 +246,7 @@ export const CreateTeamModal: React.FC<TeamModalProps> = ({
           <div className="space-y-3 pt-4 border-t border-slate-800">
             <div className="flex justify-between items-center">
               <h3 className="text-xs font-black uppercase text-amber-400 tracking-wider">
-                Roster Lineup ({players.length})
+                {sportType} Roster Lineup ({players.length})
               </h3>
               <button
                 type="button"
@@ -235,11 +280,11 @@ export const CreateTeamModal: React.FC<TeamModalProps> = ({
                     onChange={(e) => handleUpdatePlayer(idx, 'position', e.target.value)}
                     className="bg-slate-900 border border-slate-800 rounded-lg px-2 py-1.5 text-slate-200 font-semibold focus:outline-none focus:border-amber-400"
                   >
-                    <option value="PG">PG</option>
-                    <option value="SG">SG</option>
-                    <option value="SF">SF</option>
-                    <option value="PF">PF</option>
-                    <option value="C">C</option>
+                    {SPORT_POSITIONS[sportType].map((pos) => (
+                      <option key={pos} value={pos}>
+                        {pos}
+                      </option>
+                    ))}
                   </select>
                   {p.descriptor && (
                     <span className="text-[10px] text-emerald-400 px-1.5 py-0.5 bg-emerald-950/60 rounded border border-emerald-800 font-mono">
