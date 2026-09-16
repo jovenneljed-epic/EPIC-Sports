@@ -10,6 +10,7 @@ import { CreateTeamModal } from './components/CreateTeamModal';
 import { GameSettingsModal, type GameSettings } from './components/GameSettingsModal';
 import { AdminLoginGate } from './components/AdminLoginGate';
 import { AccountManagerModal } from './components/AccountManagerModal';
+import { PlayerLeaderboardView } from './components/PlayerLeaderboardView';
 import { checkCanFinalizeMatch, TIER_PRICES } from './utils/tierLimits';
 import { 
   Play, Pause, X, Clock, Volume2, 
@@ -48,7 +49,7 @@ export const SPORT_CONFIGS: Record<SportType, SportConfig> = {
   badminton: { id: 'badminton', name: 'Badminton', hasQuarters: false, hasSets: true, maxScorePerSet: 21, periodsName: 'Sets' },
 };
 
-type NavTab = 'desk' | 'roster' | 'stats' | 'schedule' | 'report';
+type NavTab = 'desk' | 'roster' | 'stats' | 'schedule' | 'report' | 'leaderboard';
 
 export interface Player {
   id: string;
@@ -681,7 +682,7 @@ export default function App() {
               </div>
               <div className="mt-4 font-mono text-3xl font-black text-white tracking-widest bg-zinc-900 px-6 py-2 rounded-xl border border-zinc-800">
                 {formatTime(gameSeconds)}
-            </div>
+              </div>
             </div>
             <div className="space-y-2">
               <span className="text-xs font-black uppercase tracking-widest text-zinc-500">Away Team</span>
@@ -730,6 +731,9 @@ export default function App() {
             </button>
             <button type="button" onClick={() => setActiveTab('stats')} className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${activeTab === 'stats' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
               <BarChart3 className="w-3.5 h-3.5" /> Standings
+            </button>
+            <button type="button" onClick={() => setActiveTab('leaderboard')} className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${activeTab === 'leaderboard' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
+              <Award className="w-3.5 h-3.5 text-amber-400" /> Hero Cards
             </button>
             <button type="button" onClick={() => setActiveTab('report')} className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${activeTab === 'report' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
               <FileText className="w-3.5 h-3.5" /> Report {activeMatch.status !== 'Final' && <Lock className="w-3 h-3 text-slate-500" />}
@@ -851,21 +855,21 @@ export default function App() {
                             ) : (
                               <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] px-2.5 py-0.5 rounded-full font-bold inline-flex items-center gap-1"><AlertCircle className="w-3 h-3" /> No Face Scan</span>
                             )}
-                        </div>
-                        <div className="flex gap-1.5 pt-1">
+                          </div>
+                          <div className="flex gap-1.5 pt-1">
                             {!isViewer && (
                               <button type="button" onClick={() => setEnrollingPlayer(player)} className="flex-1 bg-slate-800 hover:bg-slate-700 text-blue-300 py-1.5 rounded-lg text-[11px] font-bold transition cursor-pointer flex items-center justify-center gap-1"><Camera className="w-3 h-3" /> {player.descriptor ? 'Update' : 'Enroll'}</button>
                             )}
                             <button type="button" onClick={() => setSelectedPlayer(player)} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 py-1.5 rounded-lg text-[11px] font-bold transition cursor-pointer">QR Pass</button>
+                          </div>
                         </div>
-                      </div>
                       ))}
-                </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              ))}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
         )}
 
         {/* VIEW 2: SCHEDULE */}
@@ -926,45 +930,45 @@ export default function App() {
 
                         setQueueTeamA(''); setQueueTeamB('');
                       }} className="bg-blue-600 hover:bg-blue-500 text-white font-black px-4 py-2 rounded-xl cursor-pointer shadow whitespace-nowrap">Add</button>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {scheduledMatches.length === 0 ? (
-            <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-8 text-center text-xs text-slate-400">No matches scheduled yet.</div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {scheduledMatches.map((m) => {
-                const tA = teams.find((t) => t.id === m.teamAId);
-                const tB = teams.find((t) => t.id === m.teamBId);
-                if (!tA || !tB) return null;
-                return (
-                  <div key={m.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 shadow-xl">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/30 font-mono">{m.timeSlot}</span>
-                        <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full border border-amber-500/30">{m.sportType}</span>
+            {scheduledMatches.length === 0 ? (
+              <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-8 text-center text-xs text-slate-400">No matches scheduled yet.</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {scheduledMatches.map((m) => {
+                  const tA = teams.find((t) => t.id === m.teamAId);
+                  const tB = teams.find((t) => t.id === m.teamBId);
+                  if (!tA || !tB) return null;
+                  return (
+                    <div key={m.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 shadow-xl">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/30 font-mono">{m.timeSlot}</span>
+                          <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full border border-amber-500/30">{m.sportType}</span>
+                        </div>
+                        <h4 className="text-sm font-bold text-white mt-2">{tA.name} <span className="text-slate-500 font-normal">vs</span> {tB.name}</h4>
                       </div>
-                      <h4 className="text-sm font-bold text-white mt-2">{tA.name} <span className="text-slate-500 font-normal">vs</span> {tB.name}</h4>
+                      <div className="flex items-center gap-2">
+                        <button type="button" onClick={() => {
+                          setActiveMatch((prev) => ({ ...prev, sessionId: activeSession.id, sportType: m.sportType, teamAId: m.teamAId, teamBId: m.teamBId, scoreA: 0, scoreB: 0, setsA: 0, setsB: 0, currentSet: 1, history: [], logs: [], quarter: 'Q1', status: 'Live', teamAFouls: 0, teamBFouls: 0, stats: {} }));
+                          setActiveTab('desk');
+                        }} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-2 rounded-xl text-xs cursor-pointer shadow whitespace-nowrap">Load to Desk</button>
+                        {isCommissioner && <button type="button" onClick={async () => {
+                          setScheduledMatches((prev) => prev.filter((item) => item.id !== m.id));
+                          await supabase.from('scheduled_matches').delete().eq('id', m.id);
+                        }} className="text-slate-500 hover:text-red-400 p-1.5 cursor-pointer"><Trash2 className="w-4 h-4" /></button>}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button type="button" onClick={() => {
-                        setActiveMatch((prev) => ({ ...prev, sessionId: activeSession.id, sportType: m.sportType, teamAId: m.teamAId, teamBId: m.teamBId, scoreA: 0, scoreB: 0, setsA: 0, setsB: 0, currentSet: 1, history: [], logs: [], quarter: 'Q1', status: 'Live', teamAFouls: 0, teamBFouls: 0, stats: {} }));
-                        setActiveTab('desk');
-                      }} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-2 rounded-xl text-xs cursor-pointer shadow whitespace-nowrap">Load to Desk</button>
-                      {isCommissioner && <button type="button" onClick={async () => {
-                        setScheduledMatches((prev) => prev.filter((item) => item.id !== m.id));
-                        await supabase.from('scheduled_matches').delete().eq('id', m.id);
-                      }} className="text-slate-500 hover:text-red-400 p-1.5 cursor-pointer"><Trash2 className="w-4 h-4" /></button>}
-                    </div>
-                </div>
-              );
-              })}
+                  );
+                })}
+              </div>
+            )}
           </div>
-        )}
-        </div>
         )}
 
         {/* VIEW 3: SCORER DESK & CHRONOLOGICAL LOG */}
@@ -1046,39 +1050,39 @@ export default function App() {
                               <span className={`font-mono text-xl font-black tabular-nums ${shotClock <= 5 ? 'text-red-500' : 'text-amber-400'}`}>{shotClock}s</span>
                             </div>
                           )}
+                        </div>
+                      </div>
+
+                      <div className="flex-1 text-center lg:text-right w-full">
+                        <span className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Away</span>
+                        <h2 className="text-2xl font-black text-white truncate">{teamB.name}</h2>
+                        <p className="text-xs text-slate-400">Coach: {teamB.coachName || 'Staff'}</p>
+                        {currentSportConfig.hasSets ? (
+                          <span className="inline-block mt-2 text-xs px-3 py-1 rounded-full font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">Sets Won: {activeMatch.setsB || 0}</span>
+                        ) : (
+                          <span className={`inline-block mt-2 text-xs px-3 py-1 rounded-full font-bold border ${activeMatch.teamBFouls >= 5 ? 'bg-red-500/20 text-red-400 border-red-500' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>Team Fouls: {activeMatch.teamBFouls} {activeMatch.teamBFouls >= 5 ? '• BONUS' : ''}</span>
+                        )}
                       </div>
                     </div>
 
-                    <div className="flex-1 text-center lg:text-right w-full">
-                      <span className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Away</span>
-                      <h2 className="text-2xl font-black text-white truncate">{teamB.name}</h2>
-                      <p className="text-xs text-slate-400">Coach: {teamB.coachName || 'Staff'}</p>
-                      {currentSportConfig.hasSets ? (
-                        <span className="inline-block mt-2 text-xs px-3 py-1 rounded-full font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">Sets Won: {activeMatch.setsB || 0}</span>
-                      ) : (
-                        <span className={`inline-block mt-2 text-xs px-3 py-1 rounded-full font-bold border ${activeMatch.teamBFouls >= 5 ? 'bg-red-500/20 text-red-400 border-red-500' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>Team Fouls: {activeMatch.teamBFouls} {activeMatch.teamBFouls >= 5 ? '• BONUS' : ''}</span>
-                      )}
+                    <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+                      <div className="flex items-center gap-1.5 bg-slate-800/80 p-1 rounded-lg border border-slate-700 overflow-x-auto max-w-full">
+                        <button type="button" disabled={isViewer} onClick={() => arenaAudio.playSubstitutionHorn()} className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-amber-300 rounded font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap"><Volume2 className="w-3 h-3" /> Horn</button>
+                        <button type="button" disabled={isViewer} onClick={() => arenaAudio.playWhistle()} className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-slate-200 rounded font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap"><Volume2 className="w-3 h-3" /> Whistle</button>
+                        <button type="button" disabled={isViewer} onClick={() => arenaAudio.playArenaBuzzer()} className="px-2.5 py-1 bg-red-900/60 hover:bg-red-800 disabled:opacity-30 disabled:cursor-not-allowed text-red-200 rounded font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap"><Volume2 className="w-3 h-3" /> Buzzer</button>
+                      </div>
+
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {!isViewer && activeMatch.status !== 'Final' ? (
+                          <button type="button" onClick={handleAttemptFinalizeMatch} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow transition cursor-pointer">
+                            <CheckCircle2 className="w-3.5 h-3.5" /> Finalize Match
+                          </button>
+                        ) : (
+                          <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-black uppercase tracking-wider">Match Finalized</span>
+                        )}
+                      </div>
                     </div>
                   </div>
-
-                  <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs">
-                    <div className="flex items-center gap-1.5 bg-slate-800/80 p-1 rounded-lg border border-slate-700 overflow-x-auto max-w-full">
-                      <button type="button" disabled={isViewer} onClick={() => arenaAudio.playSubstitutionHorn()} className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-amber-300 rounded font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap"><Volume2 className="w-3 h-3" /> Horn</button>
-                      <button type="button" disabled={isViewer} onClick={() => arenaAudio.playWhistle()} className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-slate-200 rounded font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap"><Volume2 className="w-3 h-3" /> Whistle</button>
-                      <button type="button" disabled={isViewer} onClick={() => arenaAudio.playArenaBuzzer()} className="px-2.5 py-1 bg-red-900/60 hover:bg-red-800 disabled:opacity-30 disabled:cursor-not-allowed text-red-200 rounded font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap"><Volume2 className="w-3 h-3" /> Buzzer</button>
-                    </div>
-
-                    <div className="flex items-center gap-3 flex-wrap">
-                      {!isViewer && activeMatch.status !== 'Final' ? (
-                        <button type="button" onClick={handleAttemptFinalizeMatch} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow transition cursor-pointer">
-                          <CheckCircle2 className="w-3.5 h-3.5" /> Finalize Match
-                        </button>
-                      ) : (
-                        <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-black uppercase tracking-wider">Match Finalized</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
                 )}
 
                 {/* Live Play-by-Play Activity Log */}
@@ -1107,73 +1111,73 @@ export default function App() {
                           <div>
                             <h3 className={`font-black text-sm ${color}`}>{t.name}</h3>
                             <p className="text-[10px] text-slate-400">Coach: {t.coachName || 'Staff'}</p>
+                          </div>
+                          <span className="text-xs text-slate-300 font-mono bg-slate-900 px-2 py-0.5 rounded border border-slate-700 whitespace-nowrap">{t.players.filter((p) => activeMatch.stats[String(p.id)]?.isCheckedIn).length} / {t.players.length} Active</span>
                         </div>
-                        <span className="text-xs text-slate-300 font-mono bg-slate-900 px-2 py-0.5 rounded border border-slate-700 whitespace-nowrap">{t.players.filter((p) => activeMatch.stats[String(p.id)]?.isCheckedIn).length} / {t.players.length} Active</span>
-                      </div>
 
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-xs whitespace-nowrap">
-                          <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
-                            <tr>
-                              <th className="p-3">#</th>
-                              <th className="p-3">Player</th>
-                              <th className="p-3 text-center">Status</th>
-                              <th className="p-3 text-center">Lineup</th>
-                              <th className="p-3 text-center">PTS</th>
-                              {!currentSportConfig.hasSets && <th className="p-3 text-center">FOULS</th>}
-                              {!isViewer && <th className="p-3 text-right">Scorer Action</th>}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-800/60">
-                            {t.players.map((p) => {
-                              const st = activeMatch.stats[String(p.id)] || { points: 0, ft: 0, fg2: 0, fg3: 0, fouls: 0, isCheckedIn: false, isOnCourt: true, isFouledOut: false };
-                              return (
-                                <tr key={p.id} className={!st.isCheckedIn ? 'opacity-45 bg-slate-950/40' : 'hover:bg-slate-800/30'}>
-                                  <td className={`p-3 font-mono font-bold ${color}`}>#{p.jersey}</td>
-                                  <td className="p-3">
-                                    <button type="button" onClick={() => setSelectedPlayer(p)} className="font-semibold text-white hover:underline cursor-pointer flex items-center gap-1.5">
-                                      {p.name} {p.descriptor && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />}
-                                    </button>
-                                  </td>
-                                  <td className="p-3 text-center">
-                                    {st.isCheckedIn ? <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-bold"><CheckCircle2 className="w-3 h-3" /> Ready</span> : <span className="inline-flex items-center gap-1 text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-bold"><AlertCircle className="w-3 h-3" /> Locked</span>}
-                                  </td>
-                                  <td className="p-3 text-center">
-                                    <button type="button" disabled={!st.isCheckedIn || activeMatch.status === 'Final'} onClick={() => togglePlayerOnCourt(p.id)} className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition ${st.isOnCourt ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'} disabled:opacity-50`}>
-                                      {st.isOnCourt ? 'On Court' : 'Bench'}
-                                    </button>
-                                  </td>
-                                  <td className="p-3 text-center font-bold text-white text-sm">{st.points}</td>
-                                  {!currentSportConfig.hasSets && <td className="p-3 text-center font-bold"><span className={st.isFouledOut ? 'text-red-500 font-black' : ''}>{st.fouls} / {gameSettings.foulDisqualificationLimit}</span></td>}
-                                  {!isViewer && (
-                                    <td className="p-3 text-right">
-                                      <div className="inline-flex gap-1">
-                                        {currentSportConfig.hasSets ? (
-                                          <button type="button" disabled={!st.isCheckedIn || activeMatch.status === 'Final'} onClick={() => handleScore(p.id, key, 1)} className="px-3 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 text-white text-xs font-bold rounded cursor-pointer">+1 Pt</button>
-                                        ) : (
-                                          <>
-                                            <button type="button" disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'} onClick={() => handleScore(p.id, key, 1)} className="px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-[10px] font-bold rounded cursor-pointer">+1</button>
-                                            <button type="button" disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'} onClick={() => handleScore(p.id, key, 2)} className="px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-[10px] font-bold rounded cursor-pointer">+2</button>
-                                            <button type="button" disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'} onClick={() => handleScore(p.id, key, 3)} className="px-2 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 text-white text-[10px] font-bold rounded cursor-pointer">+3</button>
-                                            <button type="button" disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'} onClick={() => handleFoul(p.id, key)} className="px-2 py-1 bg-red-900/60 hover:bg-red-800 disabled:opacity-30 text-red-200 text-[10px] font-bold rounded cursor-pointer">FOUL</button>
-                                        </>
-                                      )}
-                                  </div>
-                                  </td>
-                                )}
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs whitespace-nowrap">
+                            <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
+                              <tr>
+                                <th className="p-3">#</th>
+                                <th className="p-3">Player</th>
+                                <th className="p-3 text-center">Status</th>
+                                <th className="p-3 text-center">Lineup</th>
+                                <th className="p-3 text-center">PTS</th>
+                                {!currentSportConfig.hasSets && <th className="p-3 text-center">FOULS</th>}
+                                {!isViewer && <th className="p-3 text-right">Scorer Action</th>}
                               </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/60">
+                              {t.players.map((p) => {
+                                const st = activeMatch.stats[String(p.id)] || { points: 0, ft: 0, fg2: 0, fg3: 0, fouls: 0, isCheckedIn: false, isOnCourt: true, isFouledOut: false };
+                                return (
+                                  <tr key={p.id} className={!st.isCheckedIn ? 'opacity-45 bg-slate-950/40' : 'hover:bg-slate-800/30'}>
+                                    <td className={`p-3 font-mono font-bold ${color}`}>#{p.jersey}</td>
+                                    <td className="p-3">
+                                      <button type="button" onClick={() => setSelectedPlayer(p)} className="font-semibold text-white hover:underline cursor-pointer flex items-center gap-1.5">
+                                        {p.name} {p.descriptor && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />}
+                                      </button>
+                                    </td>
+                                    <td className="p-3 text-center">
+                                      {st.isCheckedIn ? <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-bold"><CheckCircle2 className="w-3 h-3" /> Ready</span> : <span className="inline-flex items-center gap-1 text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-bold"><AlertCircle className="w-3 h-3" /> Locked</span>}
+                                    </td>
+                                    <td className="p-3 text-center">
+                                      <button type="button" disabled={!st.isCheckedIn || activeMatch.status === 'Final'} onClick={() => togglePlayerOnCourt(p.id)} className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition ${st.isOnCourt ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'} disabled:opacity-50`}>
+                                        {st.isOnCourt ? 'On Court' : 'Bench'}
+                                      </button>
+                                    </td>
+                                    <td className="p-3 text-center font-bold text-white text-sm">{st.points}</td>
+                                    {!currentSportConfig.hasSets && <td className="p-3 text-center font-bold"><span className={st.isFouledOut ? 'text-red-500 font-black' : ''}>{st.fouls} / {gameSettings.foulDisqualificationLimit}</span></td>}
+                                    {!isViewer && (
+                                      <td className="p-3 text-right">
+                                        <div className="inline-flex gap-1">
+                                          {currentSportConfig.hasSets ? (
+                                            <button type="button" disabled={!st.isCheckedIn || activeMatch.status === 'Final'} onClick={() => handleScore(p.id, key, 1)} className="px-3 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 text-white text-xs font-bold rounded cursor-pointer">+1 Pt</button>
+                                          ) : (
+                                            <>
+                                              <button type="button" disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'} onClick={() => handleScore(p.id, key, 1)} className="px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-[10px] font-bold rounded cursor-pointer">+1</button>
+                                              <button type="button" disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'} onClick={() => handleScore(p.id, key, 2)} className="px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-[10px] font-bold rounded cursor-pointer">+2</button>
+                                              <button type="button" disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'} onClick={() => handleScore(p.id, key, 3)} className="px-2 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 text-white text-[10px] font-bold rounded cursor-pointer">+3</button>
+                                              <button type="button" disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'} onClick={() => handleFoul(p.id, key)} className="px-2 py-1 bg-red-900/60 hover:bg-red-800 disabled:opacity-30 text-red-200 text-[10px] font-bold rounded cursor-pointer">FOUL</button>
+                                            </>
+                                          )}
+                                        </div>
+                                      </td>
+                                    )}
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  ))}
-              </div>
-              )}
-            </>
-          )}
-        </div>
+                )}
+              </>
+            )}
+          </div>
         )}
 
         {/* VIEW 4: STANDINGS */}
@@ -1265,7 +1269,14 @@ export default function App() {
           </div>
         )}
 
-        {/* VIEW 5: PRINTABLE OFFICIAL GAME REPORT */}
+        {/* VIEW 5: PLAYER HERO CARDS & LEADERBOARD */}
+        {activeTab === 'leaderboard' && (
+          <div className="space-y-6 print:hidden">
+            <PlayerLeaderboardView />
+          </div>
+        )}
+
+        {/* VIEW 6: PRINTABLE OFFICIAL GAME REPORT */}
         {activeTab === 'report' && (
           <div className="space-y-6">
             {activeMatch.status !== 'Final' ? (
@@ -1425,7 +1436,7 @@ export default function App() {
                 </div>
                 <button 
                   onClick={() => handleSelectTier('basic')}
-                  className="mt-4 w-full bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 rounded-lg text-sm transition cursor-pointer"
+                  className="mt-4 w-full bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 rounded-xl text-sm transition cursor-pointer"
                 >
                   Choose Basic
                 </button>
@@ -1440,7 +1451,7 @@ export default function App() {
                 </div>
                 <button 
                   onClick={() => handleSelectTier('essential')}
-                  className="mt-4 w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-lg text-sm transition cursor-pointer"
+                  className="mt-4 w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-xl text-sm transition cursor-pointer"
                 >
                   Choose Essential
                 </button>
