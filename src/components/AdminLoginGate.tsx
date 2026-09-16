@@ -21,7 +21,8 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onAuthenticated 
     setIsSubmitting(true);
 
     try {
-      // Query the database directly for user verification
+      console.log("Submitting login for username:", username.trim());
+
       const { data, error: dbError } = await supabase
         .from('user_accounts')
         .select('*')
@@ -29,8 +30,13 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onAuthenticated 
         .eq('password', password)
         .single();
 
-      if (dbError || !data) {
-        throw new Error('Invalid username or password.');
+      if (dbError) {
+        console.error("Supabase Database Error Details:", dbError);
+        throw new Error(`DB Error [${dbError.code}]: ${dbError.message}`);
+      }
+
+      if (!data) {
+        throw new Error('No user found matching credentials.');
       }
 
       const authenticatedUser: UserAccount = {
@@ -46,7 +52,9 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onAuthenticated 
         onAuthenticated(authenticatedUser);
       }, 0);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Authentication encountered an error.');
+      const errorMsg = err instanceof Error ? err.message : 'Authentication encountered an unknown error.';
+      console.error("Caught error state:", errorMsg);
+      setError(errorMsg);
       setIsSubmitting(false);
     }
   };
