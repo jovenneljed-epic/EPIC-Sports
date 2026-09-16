@@ -26,7 +26,7 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onAuthenticated 
         .from('user_accounts')
         .select('*')
         .eq('username', username.trim())
-        .eq('password', password) // In production, match your hashed password approach
+        .eq('password', password)
         .single();
 
       if (dbError || !data) {
@@ -37,7 +37,9 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onAuthenticated 
         id: data.id,
         username: data.username,
         displayName: data.display_name || data.username,
-        role: data.role || 'scorer'
+        role: data.role || 'scorer',
+        passwordHash: data.password || '',
+        createdAt: data.created_at || new Date().toISOString()
       };
 
       setTimeout(() => {
