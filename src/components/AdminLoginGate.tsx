@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ShieldCheck, User, KeyRound, AlertCircle } from 'lucide-react';
-import { authStore, type UserAccount } from '../auth/authStore';
+import { supabase } from '../supabaseClient';
+import { type UserAccount } from '../auth/authStore';
 
 interface AdminLoginGateProps {
   onAuthenticated: (user: UserAccount) => void;
@@ -12,7 +13,7 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onAuthenticated 
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
- const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting) return;
 
@@ -20,17 +21,28 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onAuthenticated 
     setIsSubmitting(true);
 
     try {
-      const res = authStore.login(username.trim(), password);
-      const authenticatedUser = res.user;
+      // Query the database directly for user verification
+      const { data, error: dbError } = await supabase
+        .from('user_accounts')
+        .select('*')
+        .eq('username', username.trim())
+        .eq('password', password) // In production, match your hashed password approach
+        .single();
 
-      if (res.success && authenticatedUser) {
-        setTimeout(() => {
-          onAuthenticated(authenticatedUser);
-        }, 0);
-      } else {
-        setError(res.error || 'Authentication failed.');
-        setIsSubmitting(false);
+      if (dbError || !data) {
+        throw new Error('Invalid username or password.');
       }
+
+      const authenticatedUser: UserAccount = {
+        id: data.id,
+        username: data.username,
+        displayName: data.display_name || data.username,
+        role: data.role || 'scorer'
+      };
+
+      setTimeout(() => {
+        onAuthenticated(authenticatedUser);
+      }, 0);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Authentication encountered an error.');
       setIsSubmitting(false);
@@ -113,7 +125,7 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onAuthenticated 
 
         {/* Credentials Reminder */}
         <div className="mt-4 p-3 bg-slate-950/60 border border-slate-800/80 rounded-xl text-center text-[11px] text-slate-400">
-          Initial Default: Username: <strong className="text-white">admin</strong> • Password: <strong className="text-white">2026</strong>
+          Database Authentication Active
         </div>
 
         {/* Footer */}
