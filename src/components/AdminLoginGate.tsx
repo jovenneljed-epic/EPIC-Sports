@@ -10,16 +10,30 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onAuthenticated 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+ const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    if (isSubmitting) return;
 
-    const res = authStore.login(username, password);
-    if (res.success && res.user) {
-      onAuthenticated(res.user);
-    } else {
-      setError(res.error || 'Authentication failed.');
+    setError('');
+    setIsSubmitting(true);
+
+    try {
+      const res = authStore.login(username.trim(), password);
+      const authenticatedUser = res.user;
+
+      if (res.success && authenticatedUser) {
+        setTimeout(() => {
+          onAuthenticated(authenticatedUser);
+        }, 0);
+      } else {
+        setError(res.error || 'Authentication failed.');
+        setIsSubmitting(false);
+      }
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Authentication encountered an error.');
+      setIsSubmitting(false);
     }
   };
 
@@ -50,13 +64,14 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onAuthenticated 
                 type="text"
                 required
                 autoFocus
+                disabled={isSubmitting}
                 placeholder="e.g. admin or scorer1"
                 value={username}
                 onChange={(e) => {
                   setUsername(e.target.value);
-                  setError('');
+                  if (error) setError('');
                 }}
-                className="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none transition font-semibold"
+                className="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 disabled:opacity-50 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none transition font-semibold"
               />
               <User className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
             </div>
@@ -68,18 +83,19 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onAuthenticated 
               <input
                 type="password"
                 required
+                disabled={isSubmitting}
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
-                  setError('');
+                  if (error) setError('');
                 }}
-                className="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none transition font-semibold"
+                className="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 disabled:opacity-50 rounded-2xl pl-11 pr-4 py-3 text-sm text-white focus:outline-none transition font-semibold"
               />
               <KeyRound className="w-4 h-4 text-slate-500 absolute left-4 top-1/2 -translate-y-1/2" />
             </div>
             {error && (
-              <p className="text-red-400 text-xs font-semibold flex items-center gap-1.5 mt-2">
+              <p className="text-red-400 text-xs font-semibold flex items-center gap-1.5 mt-2 animate-in fade-in duration-100">
                 <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {error}
               </p>
             )}
@@ -87,9 +103,11 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onAuthenticated 
 
           <button
             type="submit"
-            className="w-full bg-blue-600 hover:bg-blue-500 active:scale-95 text-white font-black py-3 rounded-2xl text-xs uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-blue-950/60"
+            disabled={isSubmitting}
+            className="w-full bg-blue-600 hover:bg-blue-500 active:scale-95 disabled:opacity-50 text-white font-black py-3 rounded-2xl text-xs uppercase tracking-wider transition cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-blue-950/60"
           >
-            <ShieldCheck className="w-4 h-4" /> Authenticate & Unlock Table
+            <ShieldCheck className="w-4 h-4" /> 
+            {isSubmitting ? 'Authenticating...' : 'Authenticate & Unlock Table'}
           </button>
         </form>
 

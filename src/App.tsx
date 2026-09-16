@@ -200,29 +200,36 @@ export default function App() {
   });
 
   const [activeMatch, setActiveMatch] = useState<Match>(() => {
-    const saved = localStorage.getItem(getStorageKey(activeSession.id, 'active_match'));
-    return saved
-      ? JSON.parse(saved)
-      : {
-          id: `m_${Date.now()}`,
-          sessionId: activeSession.id,
-          sportType: activeSession.sportType || 'basketball',
-          teamAId: '',
-          teamBId: '',
-          scoreA: 0,
-          scoreB: 0,
-          quarter: 'Q1',
-          court: gameSettings.courtName,
-          status: 'Live',
-          teamAFouls: 0,
-          teamBFouls: 0,
-          possession: 'A',
-          setsA: 0,
-          setsB: 0,
-          currentSet: 1,
-          history: [],
-          stats: {},
-        };
+    const defaultState: Match = {
+      id: `m_${Date.now()}`,
+      sessionId: activeSession?.id || 'epic-circuit-2026',
+      sportType: activeSession?.sportType || 'basketball',
+      teamAId: '',
+      teamBId: '',
+      scoreA: 0,
+      scoreB: 0,
+      quarter: 'Q1',
+      court: DEFAULT_SETTINGS.courtName,
+      status: 'Live',
+      teamAFouls: 0,
+      teamBFouls: 0,
+      possession: 'A',
+      setsA: 0,
+      setsB: 0,
+      currentSet: 1,
+      history: [],
+      stats: {},
+    };
+
+    const saved = localStorage.getItem(getStorageKey(activeSession?.id || 'epic-circuit-2026', 'active_match'));
+    if (saved) {
+      try {
+        return { ...defaultState, ...JSON.parse(saved) };
+      } catch (err) {
+        console.error('Failed to parse active match:', err);
+      }
+    }
+    return defaultState;
   });
 
   // Online status monitor
@@ -237,19 +244,12 @@ export default function App() {
     };
   }, []);
 
-  // Sync Active Session & Load Tenant Stores
+  // Sync Stores to LocalStorage
   useEffect(() => {
     localStorage.setItem('epic_active_session', JSON.stringify(activeSession));
   }, [activeSession]);
 
   useEffect(() => {
-    if (teams.length >= 2 && (!activeMatch.teamAId || !activeMatch.teamBId)) {
-      setActiveMatch((prev) => ({
-        ...prev,
-        teamAId: prev.teamAId || teams[0].id,
-        teamBId: prev.teamBId || teams[1].id,
-      }));
-    }
     localStorage.setItem(getStorageKey(activeSession.id, 'teams'), JSON.stringify(teams));
   }, [teams, activeSession.id]);
 
@@ -283,11 +283,22 @@ export default function App() {
   const [isClockRunning, setIsClockRunning] = useState(false);
   const timerRef = useRef<number | null>(null);
 
+  // Safe Biometrics Hydration (Guarded against 401 unmount loops)
   useEffect(() => {
+    let isMounted = true;
+
     async function loadBiometrics() {
       try {
-        const { data, error } = await supabase.from('sports_players').select('id, face_descriptor');
-        if (data && !error) {
+        const { data, error, status } = await supabase
+          .from('sports_players')
+          .select('id, face_descriptor');
+
+        if (status === 401) {
+          console.warn('Supabase: Unauthorized access (401). Operating in local biometric mode.');
+          return;
+        }
+
+        if (data && !error && isMounted) {
           setTeams((prev) =>
             prev.map((t) => ({
               ...t,
@@ -302,9 +313,14 @@ export default function App() {
         console.warn('Supabase offline or not connected:', e);
       }
     }
+
     if (currentUser) {
       loadBiometrics();
     }
+
+    return () => {
+      isMounted = false;
+    };
   }, [currentUser]);
 
   const handleLogout = () => {
@@ -619,13 +635,6 @@ export default function App() {
   const teamB = useMemo(() => teams.find((t) => t.id === activeMatch.teamBId), [teams, activeMatch.teamBId]);
   const currentSportConfig = SPORT_CONFIGS[activeMatch.sportType || 'basketball'];
 
-  if (!currentUser) {
-    return <AdminLoginGate onAuthenticated={(user) => setCurrentUser(user)} />;
-  }
-
-  const isCommissioner = currentUser.role === 'commissioner';
-  const isViewer = currentUser.role === 'viewer';
-
   const teamATotals = useMemo(() => {
     if (!teamA) return { pts: 0, fouls: 0, fg3: 0, ft: 0 };
     let pts = 0, fouls = 0, fg3 = 0, ft = 0;
@@ -656,44 +665,53 @@ export default function App() {
     return { pts, fouls, fg3, ft };
   }, [teamB, activeMatch.stats]);
 
+  // ALL HOOKS MUST COMPLETE BEFORE THIS EARLY RETURN CHECK
+  if (!currentUser) {
+    return <AdminLoginGate onAuthenticated={(user) => setCurrentUser(user)} />;
+  }
+
+  const isCommissioner = currentUser.role === 'commissioner';
+  const isViewer = currentUser.role === 'viewer';
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white print:bg-white print:text-black">
-      {/* Top Header */}
+      {/* Top Header - Mobile Adaptive */}
       <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 shadow-xl print:hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <img
-              src="/epic-logo.png"
-              alt="EPIC Logo"
-              className="w-10 h-10 rounded-xl shadow-lg border border-blue-500/30 object-cover"
-            />
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-black tracking-tight text-white uppercase">
-                  EPIC SPORTS
-                </h1>
-                <span className="text-[10px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/30 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  powered by Kezjed
-                </span>
-                {isOnline ? (
-                  <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[9px] font-black px-1.5 py-0.5 rounded tracking-widest uppercase inline-flex items-center gap-1">
-                    <Wifi className="w-2.5 h-2.5" /> Online
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 flex flex-col md:flex-row items-center justify-between gap-3">
+          <div className="flex items-center justify-between w-full md:w-auto">
+            <div className="flex items-center gap-2.5">
+              <img
+                src="/epic-logo.png"
+                alt="EPIC Logo"
+                className="w-9 h-9 rounded-xl shadow-lg border border-blue-500/30 object-cover"
+              />
+              <div>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <h1 className="text-base font-black tracking-tight text-white uppercase">EPIC SPORTS</h1>
+                  <span className="text-[9px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/30 px-1.5 py-0.2 rounded-full uppercase">
+                    Kezjed
                   </span>
-                ) : (
-                  <span className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[9px] font-black px-1.5 py-0.5 rounded tracking-widest uppercase inline-flex items-center gap-1">
-                    <WifiOff className="w-2.5 h-2.5" /> Offline Mode
-                  </span>
-                )}
+                  {isOnline ? (
+                    <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[9px] font-black px-1.5 py-0.5 rounded uppercase hidden sm:inline-flex items-center gap-1">
+                      <Wifi className="w-2 h-2" /> Online
+                    </span>
+                  ) : (
+                    <span className="bg-orange-500/20 text-orange-400 border border-orange-500/30 text-[9px] font-black px-1.5 py-0.5 rounded uppercase hidden sm:inline-flex items-center gap-1">
+                      <WifiOff className="w-2 h-2" /> Offline
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400 font-semibold">{activeSession.venue}</p>
               </div>
-              <p className="text-[11px] text-slate-400 font-semibold">{activeSession.venue} • {gameSettings.courtName}</p>
             </div>
           </div>
 
-          <nav className="flex items-center bg-slate-950/80 p-1 rounded-xl border border-slate-800">
+          {/* Mobile-scrollable Nav Tabs */}
+          <nav className="flex items-center bg-slate-950/90 p-1 rounded-xl border border-slate-800 overflow-x-auto max-w-full w-full md:w-auto scrollbar-none">
             <button
               type="button"
               onClick={() => setActiveTab('roster')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
+              className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${
                 activeTab === 'roster' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -702,7 +720,7 @@ export default function App() {
             <button
               type="button"
               onClick={() => setActiveTab('schedule')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
+              className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${
                 activeTab === 'schedule' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -711,16 +729,16 @@ export default function App() {
             <button
               type="button"
               onClick={() => setActiveTab('desk')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
+              className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${
                 activeTab === 'desk' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
               }`}
             >
-              <Clock className="w-3.5 h-3.5" /> Scorer Desk
+              <Clock className="w-3.5 h-3.5" /> Desk
             </button>
             <button
               type="button"
               onClick={() => setActiveTab('stats')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
+              className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${
                 activeTab === 'stats' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
               }`}
             >
@@ -729,11 +747,11 @@ export default function App() {
             <button
               type="button"
               onClick={() => setActiveTab('report')}
-              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1.5 ${
+              className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${
                 activeTab === 'report' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
               }`}
             >
-              <FileText className="w-3.5 h-3.5" /> Game Report
+              <FileText className="w-3.5 h-3.5" /> Report
               {activeMatch.status !== 'Final' && (
                 <span title="Report unlocks when match is final">
                   <Lock className="w-3 h-3 text-slate-500" />
@@ -742,20 +760,20 @@ export default function App() {
             </button>
           </nav>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 justify-end w-full md:w-auto">
             {!isViewer && (
               <>
                 <button
                   type="button"
                   onClick={() => setIsLivenessModalOpen(true)}
-                  className="bg-blue-600 hover:bg-blue-500 active:scale-95 text-white px-3 py-1.5 text-xs font-black rounded-lg transition cursor-pointer flex items-center gap-1.5 shadow"
+                  className="bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1.5 text-[11px] font-black rounded-lg flex items-center gap-1 shadow cursor-pointer"
                 >
-                  <ScanFace className="w-4 h-4" /> Face ID
+                  <ScanFace className="w-3.5 h-3.5" /> Face ID
                 </button>
                 <button
                   type="button"
                   onClick={() => setIsQrScannerOpen(true)}
-                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1"
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-2 py-1.5 text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-pointer"
                 >
                   <Camera className="w-3.5 h-3.5" /> QR
                 </button>
@@ -779,7 +797,6 @@ export default function App() {
               className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 cursor-pointer flex items-center gap-1.5 text-xs font-bold"
             >
               <UserCog className="w-4 h-4 text-blue-400" />
-              <span className="hidden md:inline">{currentUser.displayName}</span>
             </button>
 
             <button
@@ -795,7 +812,7 @@ export default function App() {
       </header>
 
       {/* Main Viewport */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 flex-1 w-full print:p-0 print:max-w-none">
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 flex-1 w-full print:p-0 print:max-w-none">
         
         {/* VIEW 1: FRANCHISES */}
         {activeTab === 'roster' && (
@@ -809,7 +826,7 @@ export default function App() {
               </div>
 
               {/* Sport Category Filter Tabs */}
-              <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl gap-1">
+              <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl gap-1 overflow-x-auto max-w-full">
                 {(['basketball', 'volleyball', 'badminton'] as SportType[]).map((sport) => {
                   const sportCount = teams.filter((t) => (t.sportType || 'basketball') === sport).length;
                   return (
@@ -817,7 +834,7 @@ export default function App() {
                       key={sport}
                       type="button"
                       onClick={() => setSelectedSportTab(sport)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition cursor-pointer whitespace-nowrap ${
                         selectedSportTab === sport
                           ? 'bg-blue-600 text-white shadow'
                           : 'text-slate-400 hover:text-white'
@@ -870,12 +887,12 @@ export default function App() {
             ) : (
               <div className="space-y-8">
                 {filteredTeams.map((team) => (
-                  <div key={team.id} className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+                  <div key={team.id} className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-6 shadow-xl space-y-4">
                     <div className="flex flex-wrap justify-between items-center gap-4 pb-4 border-b border-slate-800">
                       <div className="flex items-center gap-3">
                         <div className={`w-4 h-10 rounded-full bg-gradient-to-b ${team.color}`} />
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <h3 className="text-lg font-black text-white">{team.name}</h3>
                             <span className="text-[10px] font-bold uppercase px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full border border-amber-500/30">
                               {team.sportType || 'basketball'}
@@ -970,9 +987,9 @@ export default function App() {
 
             {/* Schedule Builder Form */}
             {isCommissioner && teams.length >= 2 && (
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
                 <h3 className="text-xs font-black uppercase tracking-wider text-blue-400">Schedule New Matchup</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
                   <div>
                     <label className="block font-bold text-slate-400 mb-1">Sport Type</label>
                     <select
@@ -1052,7 +1069,7 @@ export default function App() {
                           setQueueTeamA('');
                           setQueueTeamB('');
                         }}
-                        className="bg-blue-600 hover:bg-blue-500 text-white font-black px-4 py-2 rounded-xl cursor-pointer shadow"
+                        className="bg-blue-600 hover:bg-blue-500 text-white font-black px-4 py-2 rounded-xl cursor-pointer shadow whitespace-nowrap"
                       >
                         Add to Queue
                       </button>
@@ -1075,9 +1092,9 @@ export default function App() {
                   if (!tA || !tB) return null;
 
                   return (
-                    <div key={m.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between gap-4 shadow-xl">
+                    <div key={m.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 shadow-xl">
                       <div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <span className="text-[10px] font-black uppercase px-2 py-0.5 bg-blue-500/10 text-blue-400 rounded-full border border-blue-500/30 font-mono">
                             {m.timeSlot}
                           </span>
@@ -1111,7 +1128,7 @@ export default function App() {
                             }));
                             setActiveTab('desk');
                           }}
-                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-2 rounded-xl text-xs cursor-pointer shadow"
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-2 rounded-xl text-xs cursor-pointer shadow whitespace-nowrap"
                         >
                           Load to Desk
                         </button>
@@ -1151,8 +1168,8 @@ export default function App() {
             ) : (
               <>
                 {/* Fixed & Locked Matchup Banner */}
-                <div className="flex flex-wrap items-center justify-between gap-4 bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800 text-xs shadow-md">
-                  <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800 text-xs shadow-md">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <div className="flex items-center gap-1.5">
                       <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Matchup:</span>
                       <span className="px-2.5 py-1 bg-amber-500/10 text-amber-400 border border-amber-500/30 rounded-lg font-black uppercase text-[11px]">
@@ -1160,10 +1177,10 @@ export default function App() {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 font-bold">
-                      <span className="text-white">{teamA?.name || 'Home Team'}</span>
+                    <div className="flex items-center gap-1.5 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 font-bold overflow-x-auto">
+                      <span className="text-white truncate max-w-[120px]">{teamA?.name || 'Home'}</span>
                       <span className="text-slate-600 text-[10px]">VS</span>
-                      <span className="text-white">{teamB?.name || 'Away Team'}</span>
+                      <span className="text-white truncate max-w-[120px]">{teamB?.name || 'Away'}</span>
                     </div>
 
                     <button
@@ -1176,8 +1193,8 @@ export default function App() {
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase">{currentSportConfig.periodsName}:</span>
+                  <div className="flex items-center gap-1.5 overflow-x-auto max-w-full">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase whitespace-nowrap">{currentSportConfig.periodsName}:</span>
                     {currentSportConfig.hasSets ? (
                       <span className="px-3 py-1 rounded bg-blue-600 text-white font-black text-xs">
                         Set {activeMatch.currentSet || 1}
@@ -1189,7 +1206,7 @@ export default function App() {
                           key={q}
                           disabled={isViewer || activeMatch.status === 'Final'}
                           onClick={() => setActiveMatch((prev) => ({ ...prev, quarter: q }))}
-                          className={`px-2 py-0.5 rounded font-bold transition cursor-pointer text-[11px] disabled:opacity-50 ${
+                          className={`px-2 py-0.5 rounded font-bold transition cursor-pointer text-[11px] disabled:opacity-50 whitespace-nowrap ${
                             activeMatch.quarter === q ? 'bg-blue-600 text-white font-black' : 'bg-slate-800 text-slate-400 hover:text-white'
                           }`}
                         >
@@ -1202,11 +1219,11 @@ export default function App() {
 
                 {/* Scoreboard */}
                 {teamA && teamB && (
-                  <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl relative">
+                  <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-6 shadow-2xl relative">
                     <div className="flex flex-col lg:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-800">
-                      <div className="flex-1 text-center lg:text-left">
+                      <div className="flex-1 text-center lg:text-left w-full">
                         <span className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Home</span>
-                        <h2 className="text-2xl font-black text-white">{teamA.name}</h2>
+                        <h2 className="text-2xl font-black text-white truncate">{teamA.name}</h2>
                         <p className="text-xs text-slate-400">Coach: {teamA.coachName || 'Staff'}</p>
                         {currentSportConfig.hasSets ? (
                           <span className="inline-block mt-2 text-xs px-3 py-1 rounded-full font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">
@@ -1219,8 +1236,8 @@ export default function App() {
                         )}
                       </div>
 
-                      <div className="flex flex-col items-center bg-slate-950 px-8 py-4 rounded-2xl border border-slate-800 shadow-inner">
-                        <span className="text-xs text-amber-400 font-black uppercase mb-1 tracking-wider">
+                      <div className="flex flex-col items-center bg-slate-950 px-6 sm:px-8 py-4 rounded-2xl border border-slate-800 shadow-inner w-full lg:w-auto">
+                        <span className="text-xs text-amber-400 font-black uppercase mb-1 tracking-wider text-center">
                           {currentSportConfig.name} • {activeMatch.court} • {activeMatch.status}
                         </span>
                         
@@ -1229,21 +1246,21 @@ export default function App() {
                           type="button"
                           disabled={activeMatch.status === 'Final'}
                           onClick={() => setActiveMatch((prev) => ({ ...prev, possession: prev.possession === 'A' ? 'B' : 'A' }))}
-                          className="my-1.5 px-3 py-1 bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-full text-[11px] font-bold text-slate-300 flex items-center gap-2 cursor-pointer transition shadow disabled:opacity-60"
+                          className="my-1.5 px-3 py-1 bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-full text-[11px] font-bold text-slate-300 flex items-center gap-2 cursor-pointer transition shadow disabled:opacity-60 max-w-full overflow-hidden"
                         >
-                          <ArrowLeftRight className="w-3.5 h-3.5 text-blue-400" />
-                          <span>{currentSportConfig.hasSets ? 'SERVING: ' : 'POSSESSION: '}
+                          <ArrowLeftRight className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
+                          <span className="truncate">{currentSportConfig.hasSets ? 'SERVING: ' : 'POSSESSION: '}
                             <strong className="text-amber-400">{activeMatch.possession === 'A' ? teamA.name : teamB.name}</strong>
                           </span>
                         </button>
 
-                        <div className="flex items-center gap-8 mb-3">
-                          <span className="text-6xl font-black text-amber-400 tabular-nums">{activeMatch.scoreA}</span>
+                        <div className="flex items-center gap-6 sm:gap-8 mb-3">
+                          <span className="text-5xl sm:text-6xl font-black text-amber-400 tabular-nums">{activeMatch.scoreA}</span>
                           <span className="text-slate-700 font-bold text-3xl">:</span>
-                          <span className="text-6xl font-black text-cyan-400 tabular-nums">{activeMatch.scoreB}</span>
+                          <span className="text-5xl sm:text-6xl font-black text-cyan-400 tabular-nums">{activeMatch.scoreB}</span>
                         </div>
 
-                        <div className="flex items-center gap-5 pt-3 border-t border-slate-800/80">
+                        <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-5 pt-3 border-t border-slate-800/80 w-full">
                           <div className="flex items-center gap-2">
                             <Clock className="w-4 h-4 text-slate-400" />
                             <span className="font-mono text-xl font-black text-white">{formatTime(gameSeconds)}</span>
@@ -1261,7 +1278,7 @@ export default function App() {
                           </div>
 
                           {!currentSportConfig.hasSets && (
-                            <div className="flex items-center gap-2 pl-4 border-l border-slate-800">
+                            <div className="flex items-center gap-2 pl-0 sm:pl-4 sm:border-l border-slate-800">
                               <span className="text-[10px] text-slate-400 font-bold uppercase">Shot</span>
                               <span className={`font-mono text-xl font-black tabular-nums ${shotClock <= 5 ? 'text-red-500' : 'text-amber-400'}`}>
                                 {shotClock}s
@@ -1289,9 +1306,9 @@ export default function App() {
                         </div>
                       </div>
 
-                      <div className="flex-1 text-center lg:text-right">
+                      <div className="flex-1 text-center lg:text-right w-full">
                         <span className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Away</span>
-                        <h2 className="text-2xl font-black text-white">{teamB.name}</h2>
+                        <h2 className="text-2xl font-black text-white truncate">{teamB.name}</h2>
                         <p className="text-xs text-slate-400">Coach: {teamB.coachName || 'Staff'}</p>
                         {currentSportConfig.hasSets ? (
                           <span className="inline-block mt-2 text-xs px-3 py-1 rounded-full font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
@@ -1306,21 +1323,21 @@ export default function App() {
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs">
-                      <div className="flex items-center gap-1.5 bg-slate-800/80 p-1 rounded-lg border border-slate-700">
-                        <button type="button" onClick={() => arenaAudio.playSubstitutionHorn()} className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-amber-300 rounded font-bold flex items-center gap-1 cursor-pointer">
+                      <div className="flex items-center gap-1.5 bg-slate-800/80 p-1 rounded-lg border border-slate-700 overflow-x-auto max-w-full">
+                        <button type="button" onClick={() => arenaAudio.playSubstitutionHorn()} className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-amber-300 rounded font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap">
                           <Volume2 className="w-3 h-3" /> Horn
                         </button>
-                        <button type="button" onClick={() => arenaAudio.playWhistle()} className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded font-bold flex items-center gap-1 cursor-pointer">
+                        <button type="button" onClick={() => arenaAudio.playWhistle()} className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap">
                           <Volume2 className="w-3 h-3" /> Whistle
                         </button>
-                        <button type="button" onClick={() => arenaAudio.playArenaBuzzer()} className="px-2.5 py-1 bg-red-900/60 hover:bg-red-800 text-red-200 rounded font-bold flex items-center gap-1 cursor-pointer">
+                        <button type="button" onClick={() => arenaAudio.playArenaBuzzer()} className="px-2.5 py-1 bg-red-900/60 hover:bg-red-800 text-red-200 rounded font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap">
                           <Volume2 className="w-3 h-3" /> Buzzer
                         </button>
                       </div>
 
                       {/* Match Finalizer Switch */}
-                      <div className="flex items-center gap-3">
-                        <span className="text-[11px] text-slate-400 flex items-center gap-1">
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <span className="text-[11px] text-slate-400 flex items-center gap-1 hidden sm:inline-flex">
                           <ShieldAlert className="w-3.5 h-3.5 text-amber-400" /> Only verified checked-in players can score
                         </span>
                         {!isViewer && activeMatch.status !== 'Final' ? (
@@ -1351,7 +1368,7 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Team Tables with On-Court / Bench Toggles */}
+                {/* Team Tables with Responsive Horizontal Scroll */}
                 {teamA && teamB && (
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     {[
@@ -1364,128 +1381,130 @@ export default function App() {
                             <h3 className={`font-black text-sm ${color}`}>{t.name}</h3>
                             <p className="text-[10px] text-slate-400">Coach: {t.coachName || 'Staff'}</p>
                           </div>
-                          <span className="text-xs text-slate-300 font-mono bg-slate-900 px-2 py-0.5 rounded border border-slate-700">
+                          <span className="text-xs text-slate-300 font-mono bg-slate-900 px-2 py-0.5 rounded border border-slate-700 whitespace-nowrap">
                             {t.players.filter((p) => activeMatch.stats[String(p.id)]?.isCheckedIn).length} / {t.players.length} Active
                           </span>
                         </div>
 
-                        <table className="w-full text-left text-xs">
-                          <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
-                            <tr>
-                              <th className="p-3">#</th>
-                              <th className="p-3">Player</th>
-                              <th className="p-3 text-center">Status</th>
-                              <th className="p-3 text-center">Lineup</th>
-                              <th className="p-3 text-center">PTS</th>
-                              {!currentSportConfig.hasSets && <th className="p-3 text-center">FOULS</th>}
-                              {!isViewer && <th className="p-3 text-right">Scorer Action</th>}
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-800/60">
-                            {t.players.map((p) => {
-                              const st = activeMatch.stats[String(p.id)] || {
-                                points: 0, ft: 0, fg2: 0, fg3: 0, fouls: 0, isCheckedIn: false, isOnCourt: true, isFouledOut: false,
-                              };
-                              return (
-                                <tr key={p.id} className={!st.isCheckedIn ? 'opacity-45 bg-slate-950/40' : 'hover:bg-slate-800/30'}>
-                                  <td className={`p-3 font-mono font-bold ${color}`}>#{p.jersey}</td>
-                                  <td className="p-3">
-                                    <button
-                                      type="button"
-                                      onClick={() => setSelectedPlayer(p)}
-                                      className="font-semibold text-white hover:underline cursor-pointer flex items-center gap-1.5"
-                                    >
-                                      {p.name}
-                                      {p.descriptor && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Biometrics Enrolled" />}
-                                    </button>
-                                  </td>
-                                  <td className="p-3 text-center">
-                                    {st.isCheckedIn ? (
-                                      <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded font-bold">
-                                        <CheckCircle2 className="w-3 h-3" /> Ready
-                                      </span>
-                                    ) : (
-                                      <span className="inline-flex items-center gap-1 text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded font-bold">
-                                        <AlertCircle className="w-3 h-3" /> Locked
-                                      </span>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs whitespace-nowrap">
+                            <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
+                              <tr>
+                                <th className="p-3">#</th>
+                                <th className="p-3">Player</th>
+                                <th className="p-3 text-center">Status</th>
+                                <th className="p-3 text-center">Lineup</th>
+                                <th className="p-3 text-center">PTS</th>
+                                {!currentSportConfig.hasSets && <th className="p-3 text-center">FOULS</th>}
+                                {!isViewer && <th className="p-3 text-right">Scorer Action</th>}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/60">
+                              {t.players.map((p) => {
+                                const st = activeMatch.stats[String(p.id)] || {
+                                  points: 0, ft: 0, fg2: 0, fg3: 0, fouls: 0, isCheckedIn: false, isOnCourt: true, isFouledOut: false,
+                                };
+                                return (
+                                  <tr key={p.id} className={!st.isCheckedIn ? 'opacity-45 bg-slate-950/40' : 'hover:bg-slate-800/30'}>
+                                    <td className={`p-3 font-mono font-bold ${color}`}>#{p.jersey}</td>
+                                    <td className="p-3">
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedPlayer(p)}
+                                        className="font-semibold text-white hover:underline cursor-pointer flex items-center gap-1.5"
+                                      >
+                                        {p.name}
+                                        {p.descriptor && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" title="Biometrics Enrolled" />}
+                                      </button>
+                                    </td>
+                                    <td className="p-3 text-center">
+                                      {st.isCheckedIn ? (
+                                        <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded font-bold">
+                                          <CheckCircle2 className="w-3 h-3" /> Ready
+                                        </span>
+                                      ) : (
+                                        <span className="inline-flex items-center gap-1 text-[10px] bg-red-500/20 text-red-400 border border-red-500/30 px-2 py-0.5 rounded font-bold">
+                                          <AlertCircle className="w-3 h-3" /> Locked
+                                        </span>
+                                      )}
+                                    </td>
+                                    <td className="p-3 text-center">
+                                      <button
+                                        type="button"
+                                        disabled={!st.isCheckedIn || activeMatch.status === 'Final'}
+                                        onClick={() => togglePlayerOnCourt(p.id)}
+                                        className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition ${
+                                          st.isOnCourt ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+                                        } disabled:opacity-50`}
+                                      >
+                                        {st.isOnCourt ? 'On Court' : 'Bench'}
+                                      </button>
+                                    </td>
+                                    <td className="p-3 text-center font-bold text-white text-sm">{st.points}</td>
+                                    {!currentSportConfig.hasSets && (
+                                      <td className="p-3 text-center font-bold">
+                                        <span className={st.isFouledOut ? 'text-red-500 font-black' : ''}>
+                                          {st.fouls} / {gameSettings.foulDisqualificationLimit}
+                                        </span>
+                                      </td>
                                     )}
-                                  </td>
-                                  <td className="p-3 text-center">
-                                    <button
-                                      type="button"
-                                      disabled={!st.isCheckedIn || activeMatch.status === 'Final'}
-                                      onClick={() => togglePlayerOnCourt(p.id)}
-                                      className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition ${
-                                        st.isOnCourt ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
-                                      } disabled:opacity-50`}
-                                    >
-                                      {st.isOnCourt ? 'On Court' : 'Bench'}
-                                    </button>
-                                  </td>
-                                  <td className="p-3 text-center font-bold text-white text-sm">{st.points}</td>
-                                  {!currentSportConfig.hasSets && (
-                                    <td className="p-3 text-center font-bold">
-                                      <span className={st.isFouledOut ? 'text-red-500 font-black' : ''}>
-                                        {st.fouls} / {gameSettings.foulDisqualificationLimit}
-                                      </span>
-                                    </td>
-                                  )}
-                                  {!isViewer && (
-                                    <td className="p-3 text-right">
-                                      <div className="inline-flex gap-1">
-                                        {currentSportConfig.hasSets ? (
-                                          <button
-                                            type="button"
-                                            disabled={!st.isCheckedIn || activeMatch.status === 'Final'}
-                                            onClick={() => handleScore(p.id, key, 1)}
-                                            className="px-3 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 text-white text-xs font-bold rounded cursor-pointer"
-                                          >
-                                            +1 Point
-                                          </button>
-                                        ) : (
-                                          <>
+                                    {!isViewer && (
+                                      <td className="p-3 text-right">
+                                        <div className="inline-flex gap-1">
+                                          {currentSportConfig.hasSets ? (
                                             <button
                                               type="button"
-                                              disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'}
+                                              disabled={!st.isCheckedIn || activeMatch.status === 'Final'}
                                               onClick={() => handleScore(p.id, key, 1)}
-                                              className="px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-[10px] font-bold rounded cursor-pointer"
+                                              className="px-3 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 text-white text-xs font-bold rounded cursor-pointer"
                                             >
-                                              +1
+                                              +1 Point
                                             </button>
-                                            <button
-                                              type="button"
-                                              disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'}
-                                              onClick={() => handleScore(p.id, key, 2)}
-                                              className="px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-[10px] font-bold rounded cursor-pointer"
-                                            >
-                                              +2
-                                            </button>
-                                            <button
-                                              type="button"
-                                              disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'}
-                                              onClick={() => handleScore(p.id, key, 3)}
-                                              className="px-2 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 text-white text-[10px] font-bold rounded cursor-pointer"
-                                            >
-                                              +3
-                                            </button>
-                                            <button
-                                              type="button"
-                                              disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'}
-                                              onClick={() => handleFoul(p.id, key)}
-                                              className="px-2 py-1 bg-red-900/60 hover:bg-red-800 disabled:opacity-30 text-red-200 text-[10px] font-bold rounded cursor-pointer"
-                                            >
-                                              FOUL
-                                            </button>
-                                          </>
-                                        )}
-                                      </div>
-                                    </td>
-                                  )}
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                                          ) : (
+                                            <>
+                                              <button
+                                                type="button"
+                                                disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'}
+                                                onClick={() => handleScore(p.id, key, 1)}
+                                                className="px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-[10px] font-bold rounded cursor-pointer"
+                                              >
+                                                +1
+                                              </button>
+                                              <button
+                                                type="button"
+                                                disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'}
+                                                onClick={() => handleScore(p.id, key, 2)}
+                                                className="px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-[10px] font-bold rounded cursor-pointer"
+                                              >
+                                                +2
+                                              </button>
+                                              <button
+                                                type="button"
+                                                disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'}
+                                                onClick={() => handleScore(p.id, key, 3)}
+                                                className="px-2 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 text-white text-[10px] font-bold rounded cursor-pointer"
+                                              >
+                                                +3
+                                              </button>
+                                              <button
+                                                type="button"
+                                                disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'}
+                                                onClick={() => handleFoul(p.id, key)}
+                                                className="px-2 py-1 bg-red-900/60 hover:bg-red-800 disabled:opacity-30 text-red-200 text-[10px] font-bold rounded cursor-pointer"
+                                              >
+                                                FOUL
+                                              </button>
+                                            </>
+                                          )}
+                                        </div>
+                                      </td>
+                                    )}
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -1509,7 +1528,7 @@ export default function App() {
               </div>
 
               {/* Sport Category Filter */}
-              <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl gap-1">
+              <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl gap-1 overflow-x-auto max-w-full">
                 {(['basketball', 'volleyball', 'badminton'] as SportType[]).map((sport) => {
                   const count = teams.filter((t) => (t.sportType || 'basketball') === sport).length;
                   return (
@@ -1517,7 +1536,7 @@ export default function App() {
                       key={sport}
                       type="button"
                       onClick={() => setSelectedSportTab(sport)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition cursor-pointer whitespace-nowrap ${
                         selectedSportTab === sport
                           ? 'bg-blue-600 text-white shadow'
                           : 'text-slate-400 hover:text-white'
@@ -1542,56 +1561,58 @@ export default function App() {
                 </div>
               ) : (
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
-                      <tr>
-                        <th className="p-3.5">Rank & Franchise</th>
-                        <th className="p-3.5">Head Coach</th>
-                        <th className="p-3.5 text-center">W</th>
-                        <th className="p-3.5 text-center">L</th>
-                        <th className="p-3.5 text-center">PCT</th>
-                        <th className="p-3.5 text-center">PTS</th>
-                        <th className="p-3.5 text-center">OPP</th>
-                        <th className="p-3.5 text-center">DIFF</th>
-                        <th className="p-3.5 text-center">STREAK</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-800/60 font-semibold">
-                      {[...filteredTeams]
-                        .sort((a, b) => (b.stats?.wins || 0) - (a.stats?.wins || 0))
-                        .map((team, idx) => {
-                          const wins = team.stats?.wins || 0;
-                          const losses = team.stats?.losses || 0;
-                          const total = wins + losses;
-                          const pct = total > 0 ? (wins / total).toFixed(3) : '.000';
-                          const diff = (team.stats?.ptsScored || 0) - (team.stats?.ptsAllowed || 0);
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs whitespace-nowrap">
+                      <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
+                        <tr>
+                          <th className="p-3.5">Rank & Franchise</th>
+                          <th className="p-3.5">Head Coach</th>
+                          <th className="p-3.5 text-center">W</th>
+                          <th className="p-3.5 text-center">L</th>
+                          <th className="p-3.5 text-center">PCT</th>
+                          <th className="p-3.5 text-center">PTS</th>
+                          <th className="p-3.5 text-center">OPP</th>
+                          <th className="p-3.5 text-center">DIFF</th>
+                          <th className="p-3.5 text-center">STREAK</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60 font-semibold">
+                        {[...filteredTeams]
+                          .sort((a, b) => (b.stats?.wins || 0) - (a.stats?.wins || 0))
+                          .map((team, idx) => {
+                            const wins = team.stats?.wins || 0;
+                            const losses = team.stats?.losses || 0;
+                            const total = wins + losses;
+                            const pct = total > 0 ? (wins / total).toFixed(3) : '.000';
+                            const diff = (team.stats?.ptsScored || 0) - (team.stats?.ptsAllowed || 0);
 
-                          return (
-                            <tr key={team.id} className="hover:bg-slate-800/30">
-                              <td className="p-3.5 flex items-center gap-3">
-                                <span className="font-mono text-slate-500 font-bold">{idx + 1}</span>
-                                <div className={`w-2.5 h-6 rounded-full bg-gradient-to-b ${team.color}`} />
-                                <span className="text-white font-bold">{team.name}</span>
-                              </td>
-                              <td className="p-3.5 text-slate-400">{team.coachName || 'Staff'}</td>
-                              <td className="p-3.5 text-center font-bold text-emerald-400">{wins}</td>
-                              <td className="p-3.5 text-center font-bold text-red-400">{losses}</td>
-                              <td className="p-3.5 text-center font-mono text-slate-300">{pct}</td>
-                              <td className="p-3.5 text-center text-slate-300">{team.stats?.ptsScored || 0}</td>
-                              <td className="p-3.5 text-center text-slate-300">{team.stats?.ptsAllowed || 0}</td>
-                              <td className={`p-3.5 text-center font-mono font-bold ${diff >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                {diff > 0 ? `+${diff}` : diff}
-                              </td>
-                              <td className="p-3.5 text-center">
-                                <span className="inline-flex items-center gap-0.5 bg-slate-800 px-2 py-0.5 rounded text-[10px] font-bold text-amber-300 font-mono">
-                                  <Flame className="w-3 h-3 text-orange-400" /> {team.stats?.streak || 'W0'}
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                    </tbody>
-                  </table>
+                            return (
+                              <tr key={team.id} className="hover:bg-slate-800/30">
+                                <td className="p-3.5 flex items-center gap-3">
+                                  <span className="font-mono text-slate-500 font-bold">{idx + 1}</span>
+                                  <div className={`w-2.5 h-6 rounded-full bg-gradient-to-b ${team.color}`} />
+                                  <span className="text-white font-bold">{team.name}</span>
+                                </td>
+                                <td className="p-3.5 text-slate-400">{team.coachName || 'Staff'}</td>
+                                <td className="p-3.5 text-center font-bold text-emerald-400">{wins}</td>
+                                <td className="p-3.5 text-center font-bold text-red-400">{losses}</td>
+                                <td className="p-3.5 text-center font-mono text-slate-300">{pct}</td>
+                                <td className="p-3.5 text-center text-slate-300">{team.stats?.ptsScored || 0}</td>
+                                <td className="p-3.5 text-center text-slate-300">{team.stats?.ptsAllowed || 0}</td>
+                                <td className={`p-3.5 text-center font-mono font-bold ${diff >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  {diff > 0 ? `+${diff}` : diff}
+                                </td>
+                                <td className="p-3.5 text-center">
+                                  <span className="inline-flex items-center gap-0.5 bg-slate-800 px-2 py-0.5 rounded text-[10px] font-bold text-amber-300 font-mono">
+                                    <Flame className="w-3 h-3 text-orange-400" /> {team.stats?.streak || 'W0'}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>
@@ -1623,76 +1644,78 @@ export default function App() {
                             <p className="text-[10px] text-slate-400">Coach: {team.coachName || 'Staff'}</p>
                           </div>
                         </div>
-                        <span className="text-[11px] text-amber-400 font-mono bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 font-bold">
-                          {team.players.length} Enrolled Players
+                        <span className="text-[11px] text-amber-400 font-mono bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800 font-bold whitespace-nowrap">
+                          {team.players.length} Players
                         </span>
                       </div>
 
                       {/* Team Specific Player Roster Table */}
-                      <table className="w-full text-left text-xs">
-                        <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
-                          <tr>
-                            <th className="p-3">#</th>
-                            <th className="p-3">Player Name</th>
-                            <th className="p-3 text-center">Position</th>
-                            <th className="p-3 text-center">PTS</th>
-                            {selectedSportTab === 'basketball' && (
-                              <>
-                                <th className="p-3 text-center">3PT</th>
-                                <th className="p-3 text-center">FT</th>
-                                <th className="p-3 text-center">Fouls</th>
-                              </>
-                            )}
-                            <th className="p-3 text-center">Verification</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-800/60 font-medium">
-                          {team.players.map((player) => {
-                            const st = activeMatch.stats[String(player.id)] || {
-                              points: 0,
-                              fg3: 0,
-                              ft: 0,
-                              fouls: 0,
-                            };
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs whitespace-nowrap">
+                          <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
+                            <tr>
+                              <th className="p-3">#</th>
+                              <th className="p-3">Player Name</th>
+                              <th className="p-3 text-center">Position</th>
+                              <th className="p-3 text-center">PTS</th>
+                              {selectedSportTab === 'basketball' && (
+                                <>
+                                  <th className="p-3 text-center">3PT</th>
+                                  <th className="p-3 text-center">FT</th>
+                                  <th className="p-3 text-center">Fouls</th>
+                                </>
+                              )}
+                              <th className="p-3 text-center">Verification</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60 font-medium">
+                            {team.players.map((player) => {
+                              const st = activeMatch.stats[String(player.id)] || {
+                                points: 0,
+                                fg3: 0,
+                                ft: 0,
+                                fouls: 0,
+                              };
 
-                            return (
-                              <tr key={player.id} className="hover:bg-slate-800/30">
-                                <td className="p-3 font-mono font-bold text-amber-400">#{player.jersey}</td>
-                                <td className="p-3 font-bold text-white">
-                                  <span className="inline-flex items-center gap-1.5">
-                                    {player.name}
-                                    {player.descriptor && (
-                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" title="Biometrics Verified" />
-                                    )}
-                                  </span>
-                                </td>
-                                <td className="p-3 text-center font-bold text-slate-400">{player.position}</td>
-                                <td className="p-3 text-center font-black text-amber-400 tabular-nums text-sm">
-                                  {st.points}
-                                </td>
-                                {selectedSportTab === 'basketball' && (
-                                  <>
-                                    <td className="p-3 text-center tabular-nums text-slate-300">{st.fg3}</td>
-                                    <td className="p-3 text-center tabular-nums text-slate-300">{st.ft}</td>
-                                    <td className="p-3 text-center tabular-nums text-slate-400">{st.fouls}</td>
-                                  </>
-                                )}
-                                <td className="p-3 text-center">
-                                  {player.descriptor ? (
-                                    <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
-                                      <CheckCircle2 className="w-3 h-3" /> Biometric ID
+                              return (
+                                <tr key={player.id} className="hover:bg-slate-800/30">
+                                  <td className="p-3 font-mono font-bold text-amber-400">#{player.jersey}</td>
+                                  <td className="p-3 font-bold text-white">
+                                    <span className="inline-flex items-center gap-1.5">
+                                      {player.name}
+                                      {player.descriptor && (
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" title="Biometrics Verified" />
+                                      )}
                                     </span>
-                                  ) : (
-                                    <span className="inline-flex items-center gap-1 text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-semibold">
-                                      QR Pass
-                                    </span>
+                                  </td>
+                                  <td className="p-3 text-center font-bold text-slate-400">{player.position}</td>
+                                  <td className="p-3 text-center font-black text-amber-400 tabular-nums text-sm">
+                                    {st.points}
+                                  </td>
+                                  {selectedSportTab === 'basketball' && (
+                                    <>
+                                      <td className="p-3 text-center tabular-nums text-slate-300">{st.fg3}</td>
+                                      <td className="p-3 text-center tabular-nums text-slate-300">{st.ft}</td>
+                                      <td className="p-3 text-center tabular-nums text-slate-400">{st.fouls}</td>
+                                    </>
                                   )}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
+                                  <td className="p-3 text-center">
+                                    {player.descriptor ? (
+                                      <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-bold">
+                                        <CheckCircle2 className="w-3 h-3" /> Biometric ID
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1 text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-semibold">
+                                        QR Pass
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1706,7 +1729,7 @@ export default function App() {
           <div className="space-y-6">
             {activeMatch.status !== 'Final' ? (
               /* GATED NOTICE: Enabled only when match is finalized */
-              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center max-w-xl mx-auto space-y-4 shadow-xl">
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 sm:p-12 text-center max-w-xl mx-auto space-y-4 shadow-xl">
                 <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/20 rounded-full flex items-center justify-center mx-auto text-amber-400">
                   <Lock className="w-8 h-8" />
                 </div>
@@ -1728,14 +1751,14 @@ export default function App() {
               /* FINALIZED CERTIFIED 1-SHEET REPORT */
               <div
                 id="official-game-report"
-                className="space-y-4 bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl print:bg-white print:border-none print:shadow-none print:text-black print:p-0"
+                className="space-y-4 bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-6 shadow-2xl print:bg-white print:border-none print:shadow-none print:text-black print:p-0"
               >
                 {/* Header & Print Button */}
-                <div className="flex justify-between items-center pb-4 border-b border-slate-800 print:border-black print:pb-2">
+                <div className="flex flex-wrap justify-between items-center gap-4 pb-4 border-b border-slate-800 print:border-black print:pb-2">
                   <div className="flex items-center gap-3">
-                    <img src="/epic-logo.png" alt="EPIC" className="w-10 h-10 rounded-xl border border-blue-500/30 object-cover print:w-9 print:h-9" />
+                    <img src="/epic-logo.png" alt="EPIC" className="w-10 h-10 rounded-xl border border-blue-500/30 object-cover print:w-9 print:h-9 flex-shrink-0" />
                     <div>
-                      <h1 className="text-lg font-black uppercase text-white print:text-black tracking-tight leading-tight">
+                      <h1 className="text-base sm:text-lg font-black uppercase text-white print:text-black tracking-tight leading-tight">
                         EPIC Sports Official Game Report
                       </h1>
                       <p className="text-[10px] text-slate-400 print:text-gray-700 font-semibold">
@@ -1999,29 +2022,29 @@ export default function App() {
                         printWindow.close();
                       }, 400);
                     }}
-                    className="bg-blue-600 hover:bg-blue-500 text-white font-black px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 shadow cursor-pointer print:hidden"
+                    className="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white font-black px-4 py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow cursor-pointer print:hidden"
                   >
                     <Printer className="w-4 h-4" /> Print 1-Sheet Report (PDF)
                   </button>
                 </div>
 
                 {/* Live Preview Display on Web UI */}
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 text-center space-y-2">
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 sm:p-5 text-center space-y-2">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">
                     Certified Match Final • {currentSportConfig.name}
                   </span>
-                  <div className="flex items-center justify-center gap-8">
-                    <div className="text-right flex-1">
-                      <h2 className="text-xl font-black text-white">{teamA?.name}</h2>
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8">
+                    <div className="text-center sm:text-right flex-1 w-full">
+                      <h2 className="text-xl font-black text-white truncate">{teamA?.name}</h2>
                       <p className="text-[11px] text-slate-400">Coach: {teamA?.coachName || 'Staff'}</p>
                     </div>
-                    <div className="flex items-center gap-4 bg-slate-900 px-6 py-2.5 rounded-xl border border-slate-800">
-                      <span className="text-4xl font-black text-amber-400">{activeMatch.scoreA}</span>
+                    <div className="flex items-center gap-4 bg-slate-900 px-6 py-2.5 rounded-xl border border-slate-800 flex-shrink-0">
+                      <span className="text-3xl sm:text-4xl font-black text-amber-400">{activeMatch.scoreA}</span>
                       <span className="text-slate-600 text-xl font-bold">:</span>
-                      <span className="text-4xl font-black text-cyan-400">{activeMatch.scoreB}</span>
+                      <span className="text-3xl sm:text-4xl font-black text-cyan-400">{activeMatch.scoreB}</span>
                     </div>
-                    <div className="text-left flex-1">
-                      <h2 className="text-xl font-black text-white">{teamB?.name}</h2>
+                    <div className="text-center sm:text-left flex-1 w-full">
+                      <h2 className="text-xl font-black text-white truncate">{teamB?.name}</h2>
                       <p className="text-[11px] text-slate-400">Coach: {teamB?.coachName || 'Staff'}</p>
                     </div>
                   </div>
@@ -2033,7 +2056,7 @@ export default function App() {
       </main>
 
       {/* --- FOOTER --- */}
-      <footer className="border-t border-slate-800 bg-slate-950 py-4 px-6 mt-auto print:hidden">
+      <footer className="border-t border-slate-800 bg-slate-950 py-4 px-4 sm:px-6 mt-auto print:hidden">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
           <p className="text-[11px] text-slate-400 italic">
             "I can do all things through Christ who strengthens me." <span className="text-amber-400/90 font-semibold not-italic">— Philippians 4:13</span>
