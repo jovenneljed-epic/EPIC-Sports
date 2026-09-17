@@ -12,13 +12,14 @@ import { AdminLoginGate } from './components/AdminLoginGate';
 import { AccountManagerModal } from './components/AccountManagerModal';
 import { PlayerLeaderboardView } from './components/PlayerLeaderboardView';
 import { SmartScheduleGenerator } from './components/SmartScheduleGenerator';
+import { LeagueBrandingModal, type LeagueBranding } from './components/LeagueBrandingModal';
 import { checkCanFinalizeMatch, TIER_PRICES } from './utils/tierLimits';
 import { 
   Play, Pause, X, Clock, Volume2, 
   CheckCircle2, Camera, UserCheck, AlertCircle, 
   BarChart3, Plus, Users, Award, Flame, Edit3, 
   Trash2, LogOut, UserCog, Printer, FileText, Calendar, 
-  ArrowLeftRight, Lock, Download, Upload, Monitor, Activity, Zap
+  ArrowLeftRight, Lock, Download, Upload, Monitor, Activity, Zap, Palette
 } from 'lucide-react';
 
 // --- Domain Models ---
@@ -166,6 +167,16 @@ export default function App() {
   const [currentTier, setCurrentTier] = useState<string>('free');
   const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
 
+  // White-Labeling & Branding States
+  const [isBrandingModalOpen, setIsBrandingModalOpen] = useState(false);
+  const [leagueBranding, setLeagueBranding] = useState<LeagueBranding>({
+    leagueName: 'EPIC TOURNAMENT CIRCUIT',
+    venueName: 'Main Gymnasium',
+    logoUrl: '/epic-logo.png',
+    sponsorTagline: 'Powered by Kezjed Solutions',
+    accentColor: 'amber',
+  });
+
   const [activeSession, _setActiveSession] = useState<TournamentSession>(DEFAULT_SESSION);
   const [teams, setTeams] = useState<Team[]>([]);
   const [scheduledMatches, setScheduledMatches] = useState<ScheduledMatch[]>([]);
@@ -183,6 +194,16 @@ export default function App() {
 
         if (orgData) {
           setCurrentTier(orgData.tier || 'free');
+          if (orgData.name) {
+            setLeagueBranding((prev) => ({
+              ...prev,
+              leagueName: orgData.name,
+              venueName: orgData.venue || prev.venueName,
+              logoUrl: orgData.branding?.logoUrl || prev.logoUrl,
+              sponsorTagline: orgData.branding?.sponsorTagline || prev.sponsorTagline,
+              accentColor: orgData.branding?.accentColor || prev.accentColor,
+            }));
+          }
         } else {
           await supabase.from('organizations').insert([{
             id: activeSession.id,
@@ -406,6 +427,7 @@ export default function App() {
       teams,
       scheduledMatches,
       gameSettings,
+      leagueBranding,
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -428,6 +450,7 @@ export default function App() {
           setTeams(data.teams);
           if (data.scheduledMatches) setScheduledMatches(data.scheduledMatches);
           if (data.gameSettings) setGameSettings(data.gameSettings);
+          if (data.leagueBranding) setLeagueBranding(data.leagueBranding);
           alert('Tournament backup successfully restored!');
         } else {
           alert('Invalid backup file structure.');
@@ -653,10 +676,24 @@ export default function App() {
       <div className="min-h-screen bg-black text-white flex flex-col justify-between p-8 font-sans selection:bg-none">
         <div className="flex justify-between items-center border-b border-zinc-800 pb-4">
           <div className="flex items-center gap-3">
-            <img src="/epic-logo.png" alt="EPIC" className="w-12 h-12 rounded-2xl border border-blue-500/30 object-cover" />
+            <img 
+              src={leagueBranding.logoUrl || '/epic-logo.png'} 
+              alt="League Logo" 
+              onError={(e) => { (e.target as HTMLImageElement).src = '/epic-logo.png'; }}
+              className="w-12 h-12 rounded-2xl border border-blue-500/30 object-cover bg-zinc-900" 
+            />
             <div>
-              <h1 className="text-xl font-black uppercase tracking-wider text-amber-400">EPIC SPORTS ARENA DISPLAY</h1>
-              <p className="text-xs text-zinc-400">{activeSession.venue} • {gameSettings.courtName}</p>
+              <h1 className="text-xl font-black uppercase tracking-wider text-amber-400">
+                {leagueBranding.leagueName}
+              </h1>
+              <p className="text-xs text-zinc-400">
+                {leagueBranding.venueName} • {gameSettings.courtName}
+              </p>
+              {leagueBranding.sponsorTagline && (
+                <p className="text-[10px] text-amber-400/80 font-bold uppercase tracking-widest mt-0.5">
+                  ★ {leagueBranding.sponsorTagline}
+                </p>
+              )}
             </div>
           </div>
           <button
@@ -709,13 +746,24 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 flex flex-col md:flex-row items-center justify-between gap-3">
           <div className="flex items-center justify-between w-full md:w-auto">
             <div className="flex items-center gap-2.5">
-              <img src="/epic-logo.png" alt="EPIC" className="w-9 h-9 rounded-xl shadow-lg border border-blue-500/30 object-cover" />
+              <img 
+                src={leagueBranding.logoUrl || '/epic-logo.png'} 
+                alt="League Logo" 
+                onError={(e) => { (e.target as HTMLImageElement).src = '/epic-logo.png'; }}
+                className="w-9 h-9 rounded-xl shadow-lg border border-blue-500/30 object-cover bg-slate-900" 
+              />
               <div>
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <h1 className="text-base font-black tracking-tight text-white uppercase">EPIC SPORTS</h1>
-                  <span className="text-[9px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/30 px-1.5 py-0.2 rounded-full uppercase">Kezjed</span>
+                  <h1 className="text-base font-black tracking-tight text-white uppercase">
+                    {leagueBranding.leagueName}
+                  </h1>
+                  {leagueBranding.sponsorTagline && (
+                    <span className="text-[9px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/30 px-1.5 py-0.2 rounded-full uppercase truncate max-w-[160px]">
+                      {leagueBranding.sponsorTagline}
+                    </span>
+                  )}
                 </div>
-                <p className="text-[10px] text-slate-400 font-semibold">{activeSession.venue}</p>
+                <p className="text-[10px] text-slate-400 font-semibold">{leagueBranding.venueName}</p>
               </div>
             </div>
           </div>
@@ -755,6 +803,18 @@ export default function App() {
             <button type="button" onClick={() => setShowUpgradeModal(true)} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-2.5 py-1.5 text-[11px] rounded-lg flex items-center gap-1 cursor-pointer shadow transition" title="Upgrade Subscription">
               <Zap className="w-3.5 h-3.5" /> Upgrade Tiers
             </button>
+
+            {isCommissioner && (
+              <button
+                type="button"
+                onClick={() => setIsBrandingModalOpen(true)}
+                className="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 px-2.5 py-1.5 text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-pointer transition shadow"
+                title="Custom League White-Labeling"
+              >
+                <Palette className="w-3.5 h-3.5" /> Brand
+              </button>
+            )}
+
             <button type="button" onClick={() => setIsSpectatorMode(true)} className="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 px-2.5 py-1.5 text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-pointer" title="Fullscreen Arena Display">
               <Monitor className="w-3.5 h-3.5" /> TV Mode
             </button>
@@ -788,7 +848,7 @@ export default function App() {
             <div className="flex flex-wrap justify-between items-center gap-4">
               <div>
                 <h2 className="text-xl font-black text-white uppercase tracking-tight">Official Tournament Franchises</h2>
-                <p className="text-xs text-slate-400">Showing franchises for <strong className="text-amber-400 uppercase">{selectedSportTab}</strong> in {activeSession.name}</p>
+                <p className="text-xs text-slate-400">Showing franchises for <strong className="text-amber-400 uppercase">{selectedSportTab}</strong> in {leagueBranding.leagueName}</p>
               </div>
 
               <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl gap-1 overflow-x-auto max-w-full">
@@ -1317,10 +1377,15 @@ export default function App() {
               <div id="official-game-report" className="space-y-4 bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-6 shadow-2xl print:bg-white print:border-none print:shadow-none print:text-black print:p-0">
                 <div className="flex flex-wrap justify-between items-center gap-4 pb-4 border-b border-slate-800 print:border-black print:pb-2">
                   <div className="flex items-center gap-3">
-                    <img src="/epic-logo.png" alt="EPIC" className="w-10 h-10 rounded-xl border border-blue-500/30 object-cover print:w-9 print:h-9 flex-shrink-0" />
+                    <img 
+                      src={leagueBranding.logoUrl || '/epic-logo.png'} 
+                      alt="League Logo" 
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/epic-logo.png'; }}
+                      className="w-10 h-10 rounded-xl border border-blue-500/30 object-cover print:w-9 print:h-9 flex-shrink-0 bg-white" 
+                    />
                     <div>
-                      <h1 className="text-base sm:text-lg font-black uppercase text-white print:text-black tracking-tight leading-tight">EPIC Sports Official Game Report</h1>
-                      <p className="text-[10px] text-slate-400 print:text-gray-700 font-semibold">{activeSession.venue} • {gameSettings.courtName} • Certified Official Summary</p>
+                      <h1 className="text-base sm:text-lg font-black uppercase text-white print:text-black tracking-tight leading-tight">{leagueBranding.leagueName} - Official Game Report</h1>
+                      <p className="text-[10px] text-slate-400 print:text-gray-700 font-semibold">{leagueBranding.venueName} • {gameSettings.courtName} • Certified Official Summary</p>
                     </div>
                   </div>
 
@@ -1331,7 +1396,7 @@ export default function App() {
                       <!DOCTYPE html>
                       <html>
                         <head>
-                          <title>EPIC Sports Official Game Report - Final</title>
+                          <title>${leagueBranding.leagueName} - Official Game Report</title>
                           <style>
                             @page { size: A4 portrait; margin: 6mm 8mm; }
                             * { box-sizing: border-box; }
@@ -1355,7 +1420,7 @@ export default function App() {
                         </head>
                         <body>
                           <div class="header">
-                            <div class="title-block"><h1>EPIC Sports Official Game Report</h1><p>${activeSession.venue} • ${gameSettings.courtName}</p></div>
+                            <div class="title-block"><h1>${leagueBranding.leagueName}</h1><p>${leagueBranding.venueName} • ${gameSettings.courtName}</p></div>
                             <div class="stamp">CERTIFIED FINAL</div>
                           </div>
                           <div class="match-summary">
@@ -1439,6 +1504,7 @@ export default function App() {
       <CreateTeamModal isOpen={isTeamModalOpen} onClose={() => { setIsTeamModalOpen(false); setEditingTeam(null); }} onSaveTeam={handleSaveTeam} initialTeam={editingTeam} />
       <GameSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={gameSettings} onSaveSettings={handleSaveSettings} />
       {currentUser && <AccountManagerModal isOpen={isAccountModalOpen} onClose={() => setIsAccountModalOpen(false)} currentUser={currentUser} onUserUpdated={(updated) => setCurrentUser(updated)} />}
+      <LeagueBrandingModal isOpen={isBrandingModalOpen} onClose={() => setIsBrandingModalOpen(false)} sessionId={activeSession.id} currentBranding={leagueBranding} onSaveBranding={(updated) => setLeagueBranding(updated)} />
 
       {/* Tier Upgrade / PayMongo Modal */}
       {showUpgradeModal && (
