@@ -11,6 +11,7 @@ import { GameSettingsModal, type GameSettings } from './components/GameSettingsM
 import { AdminLoginGate } from './components/AdminLoginGate';
 import { AccountManagerModal } from './components/AccountManagerModal';
 import { PlayerLeaderboardView } from './components/PlayerLeaderboardView';
+import { SmartScheduleGenerator } from './components/SmartScheduleGenerator';
 import { checkCanFinalizeMatch, TIER_PRICES } from './utils/tierLimits';
 import { 
   Play, Pause, X, Clock, Volume2, 
@@ -878,13 +879,37 @@ export default function App() {
             <div className="flex flex-wrap justify-between items-center gap-4">
               <div>
                 <h2 className="text-xl font-black text-white uppercase tracking-tight">Tournament Match Schedule</h2>
-                <p className="text-xs text-slate-400">Queue up matchups and load them straight to the scorer desk</p>
+                <p className="text-xs text-slate-400">Auto-generate conflict-free schedules or queue individual matchups</p>
               </div>
             </div>
 
+            {/* Automated Smart Scheduler Component */}
+            {isCommissioner && (
+              <SmartScheduleGenerator
+                teams={teams}
+                sessionId={activeSession.id}
+                sportType={selectedSportTab}
+                onScheduleGenerated={async (newMatches) => {
+                  setScheduledMatches((prev) => [...prev, ...newMatches]);
+                  for (const m of newMatches) {
+                    await supabase.from('scheduled_matches').upsert({
+                      id: m.id,
+                      org_id: activeSession.id,
+                      sport_type: m.sportType,
+                      team_a_id: m.teamAId,
+                      team_b_id: m.teamBId,
+                      time_slot: m.timeSlot,
+                      status: m.status,
+                      updated_at: new Date().toISOString()
+                    });
+                  }
+                }}
+              />
+            )}
+
             {isCommissioner && teams.length >= 2 && (
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
-                <h3 className="text-xs font-black uppercase tracking-wider text-blue-400">Schedule New Matchup</h3>
+                <h3 className="text-xs font-black uppercase tracking-wider text-blue-400">Schedule New Matchup Manually</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
                   <div>
                     <label className="block font-bold text-slate-400 mb-1">Sport Type</label>
@@ -1342,7 +1367,7 @@ export default function App() {
                             <div class="table-wrap"><div class="table-title">${teamA?.name}</div><table><thead><tr><th>#</th><th>Player</th><th>PTS</th></tr></thead><tbody>${teamA?.players.map((p) => `<tr><td><b>#${p.jersey}</b></td><td>${p.name}</td><td><b>${activeMatch.stats[String(p.id)]?.points || 0}</b></td></tr>`).join('')}</tbody></table></div>
                             <div class="table-wrap"><div class="table-title">${teamB?.name}</div><table><thead><tr><th>#</th><th>Player</th><th>PTS</th></tr></thead><tbody>${teamB?.players.map((p) => `<tr><td><b>#${p.jersey}</b></td><td>${p.name}</td><td><b>${activeMatch.stats[String(p.id)]?.points || 0}</b></td></tr>`).join('')}</tbody></table></div>
                           </div>
-                          <div class="logs-section"><b>Play-by-Play Summary:</b><br>${activeMatch.logs?.map(l => `[${l.timestamp}] ${l.description}`).join('<br>') || 'No logs recorded.'}</div>
+                          <div class="logs-section"><b>Play-by-Play Summary:</b><br>${activeMatch.logs?.map(l => `[${l.timestamp}]${l.description}`).join('<br>') || 'No logs recorded.'}</div>
                           <div class="signatories">
                             <div><div class="sign-line">${currentUser.displayName}</div><div style="font-size:7px;">Official Scorer</div></div>
                             <div><div class="sign-line">Certified Official</div><div style="font-size:7px;">Head Referee</div></div>
