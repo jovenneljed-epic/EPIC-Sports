@@ -13,7 +13,7 @@ interface Props {
 export const SmartScheduleGenerator: React.FC<Props> = ({ teams, sessionId, sportType, onScheduleGenerated }) => {
   const [startTime, setStartTime] = useState('09:00 AM');
   const [intervalMinutes] = useState(60);
-  const [courtsInput] = useState('Center Court, Court 2');
+  const [courtsInput, setCourtsInput] = useState('Center Court, Court 2');
 
   const handleGenerate = () => {
     const courts = courtsInput.split(',').map((c) => c.trim()).filter(Boolean);

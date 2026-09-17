@@ -35,10 +35,8 @@ export function generateSmartSchedule(
 
   let currentGameTime = parseTimeToMinutes(config.startTime);
   let courtIndex = 0;
-  let slotDateTracker = 0;
 
   matchups.forEach((match, index) => {
-    // Check if teams are already playing at this exact time slot
     let slotFound = false;
     let attempts = 0;
 
@@ -49,7 +47,6 @@ export function generateSmartSchedule(
       const teamALast = teamLastGameTime[match.teamAId] || -999;
       const teamBLast = teamLastGameTime[match.teamBId] || -999;
 
-      // Ensure a team has at least one slot rest or doesn't play simultaneously
       if (teamALast !== currentGameTime && teamBLast !== currentGameTime) {
         scheduledMatches.push({
           id: `auto_sched_${Date.now()}_${index}`,
@@ -66,10 +63,9 @@ export function generateSmartSchedule(
         slotFound = true;
       }
 
-      // Increment court or time
       courtIndex++;
       if (courtIndex % config.courts.length === 0) {
-        currentGameTime += config.intervalMinutes; // Move to next time block
+        currentGameTime += config.intervalMinutes;
       }
       attempts++;
     }
