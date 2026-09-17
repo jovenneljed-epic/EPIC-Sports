@@ -13,6 +13,7 @@ import { AccountManagerModal } from './components/AccountManagerModal';
 import { PlayerLeaderboardView } from './components/PlayerLeaderboardView';
 import { SmartScheduleGenerator } from './components/SmartScheduleGenerator';
 import { LeagueBrandingModal, type LeagueBranding } from './components/LeagueBrandingModal';
+import { PublicTeamRegistration } from './components/PublicTeamRegistration';
 import { checkCanFinalizeMatch, TIER_PRICES } from './utils/tierLimits';
 import { 
   Play, Pause, X, Clock, Volume2, 
@@ -51,7 +52,7 @@ export const SPORT_CONFIGS: Record<SportType, SportConfig> = {
   badminton: { id: 'badminton', name: 'Badminton', hasQuarters: false, hasSets: true, maxScorePerSet: 21, periodsName: 'Sets' },
 };
 
-type NavTab = 'desk' | 'roster' | 'stats' | 'schedule' | 'report' | 'leaderboard';
+type NavTab = 'desk' | 'roster' | 'stats' | 'schedule' | 'report' | 'leaderboard' | 'register';
 
 export interface Player {
   id: string;
@@ -805,14 +806,24 @@ export default function App() {
             </button>
 
             {isCommissioner && (
-              <button
-                type="button"
-                onClick={() => setIsBrandingModalOpen(true)}
-                className="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 px-2.5 py-1.5 text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-pointer transition shadow"
-                title="Custom League White-Labeling"
-              >
-                <Palette className="w-3.5 h-3.5" /> Brand
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() => setIsBrandingModalOpen(true)}
+                  className="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 px-2.5 py-1.5 text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-pointer transition shadow"
+                  title="Custom League White-Labeling"
+                >
+                  <Palette className="w-3.5 h-3.5" /> Brand
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('register')}
+                  className={`px-2.5 py-1.5 text-[11px] font-bold rounded-lg border flex items-center gap-1 transition cursor-pointer shadow ${activeTab === 'register' ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-800 hover:bg-slate-700 text-emerald-400 border-slate-700'}`}
+                  title="Open Public Team Registration Link"
+                >
+                  <Users className="w-3.5 h-3.5" /> Registration Link
+                </button>
+              </>
             )}
 
             <button type="button" onClick={() => setIsSpectatorMode(true)} className="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 px-2.5 py-1.5 text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-pointer" title="Fullscreen Arena Display">
@@ -842,6 +853,35 @@ export default function App() {
       {/* Main Viewport */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 flex-1 w-full print:p-0 print:max-w-none">
         
+        {/* VIEW: PUBLIC REGISTRATION PORTAL */}
+        {activeTab === 'register' && (
+          <div className="space-y-6 print:hidden">
+            <div className="flex justify-between items-center bg-slate-900 p-4 rounded-2xl border border-slate-800">
+              <div>
+                <h2 className="text-sm font-black text-white uppercase">Public Registration Portal Preview</h2>
+                <p className="text-xs text-slate-400">Share this view or URL with team captains to let them self-register.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('roster')}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Back to Dashboard
+              </button>
+            </div>
+
+            <PublicTeamRegistration
+              sessionId={activeSession.id}
+              leagueName={leagueBranding.leagueName}
+              onTeamRegistered={async (newTeam) => {
+                setTeams((prev) => [...prev, newTeam]);
+                setActiveTab('roster');
+                alert(`Team "${newTeam.name}" successfully registered and added to your roster!`);
+              }}
+            />
+          </div>
+        )}
+
         {/* VIEW 1: FRANCHISES */}
         {activeTab === 'roster' && (
           <div className="space-y-6 print:hidden">
