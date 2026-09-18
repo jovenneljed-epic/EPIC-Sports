@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { ShieldCheck, User, KeyRound, AlertCircle } from 'lucide-react';
-import { supabase } from '../supabaseClient';
-import { type UserAccount } from '../auth/authStore';
+import { authStore, type UserAccount } from '../auth/authStore';
 
 interface AdminLoginGateProps {
   onAuthenticated: (user: UserAccount) => void;
@@ -23,30 +22,12 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onAuthenticated 
     try {
       console.log("Submitting login for username:", username.trim());
 
-      const { data, error: dbError } = await supabase
-        .from('user_accounts')
-        .select('*')
-        .eq('username', username.trim())
-        .eq('password', password)
-        .single();
+      // Use the robust login handler in authStore connected to Supabase
+      const authenticatedUser = await authStore.login(username.trim(), password);
 
-      if (dbError) {
-        console.error("Supabase Database Error Details:", dbError);
-        throw new Error(`DB Error [${dbError.code}]: ${dbError.message}`);
+      if (!authenticatedUser) {
+        throw new Error('Invalid username or password. Please verify your credentials and try again.');
       }
-
-      if (!data) {
-        throw new Error('No user found matching credentials.');
-      }
-
-      const authenticatedUser: UserAccount = {
-        id: data.id,
-        username: data.username,
-        displayName: data.display_name || data.username,
-        role: data.role || 'scorer',
-        passwordHash: data.password || '',
-        createdAt: data.created_at || new Date().toISOString()
-      };
 
       setTimeout(() => {
         onAuthenticated(authenticatedUser);
@@ -105,6 +86,7 @@ export const AdminLoginGate: React.FC<AdminLoginGateProps> = ({ onAuthenticated 
               <input
                 type="password"
                 required
+                autoComplete="current-password"
                 disabled={isSubmitting}
                 placeholder="••••••••"
                 value={password}

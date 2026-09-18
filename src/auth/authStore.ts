@@ -1,126 +1,136 @@
-export type UserRole = 'commissioner' | 'scorer' | 'viewer';
+import { supabase } from '../supabaseClient';
 
 export interface UserAccount {
   id: string;
   username: string;
-  passwordHash: string; // Plain/hashed comparison key
   displayName: string;
-  role: UserRole;
-  createdAt: string;
+  role: 'commissioner' | 'committee' | 'viewer';
+  isActive: boolean;
+  password?: string;
 }
 
-const STORAGE_KEY_USERS = 'epic_sports_users';
-const STORAGE_KEY_SESSION = 'epic_sports_session';
-
-// Default commissioner account initialized on first run
-const ROOT_ADMIN: UserAccount = {
-  id: 'usr_commissioner',
-  username: 'admin',
-  passwordHash: '2026',
-  displayName: 'Tournament Commissioner',
-  role: 'commissioner',
-  createdAt: new Date().toISOString(),
-};
+const CURRENT_USER_KEY = 'epic_current_user';
+const STORAGE_KEY = 'epic_accounts';
 
 export const authStore = {
-  // Retrieve all accounts
-  getUsers(): UserAccount[] {
-    const raw = localStorage.getItem(STORAGE_KEY_USERS);
-    if (!raw) {
-      localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify([ROOT_ADMIN]));
-      return [ROOT_ADMIN];
+  // Retrieve currently logged-in user session
+  getCurrentUser: async (): Promise<UserAccount | null> => {
+    const stored = localStorage.getItem(CURRENT_USER_KEY);
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch {
+        return null;
+      }
     }
-    try {
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) && parsed.length > 0 ? parsed : [ROOT_ADMIN];
-    } catch {
-      return [ROOT_ADMIN];
-    }
+    return null;
   },
 
-  // Get active session
-  getCurrentUser(): UserAccount | null {
-    const raw = localStorage.getItem(STORAGE_KEY_SESSION);
-    if (!raw) return null;
+  // Authenticate user against your real Supabase user_accounts table
+  login: async (username: string, password?: string): Promise<UserAccount | null> => {
     try {
-      return JSON.parse(raw);
-    } catch {
+      const { data, error } = await supabase
+        .from('user_accounts')
+        .select('*')
+        .ilike('username', username.trim());
+
+      // Handle database errors gracefully without crashing or showing raw query codes
+      if (error || !data || data.length === 0) {
+        console.warn("Authentication warning: Username not found or multiple matches.");
+        return null;
+      }
+
+      // If multiple rows are returned, pick the first match or handle appropriately
+      const userRow = data[0];
+
+      // Verify password if provided
+      if (userRow.password && password && userRow.password !== password) {
+        return null;
+      }
+
+      const user: UserAccount = {
+        id: userRow.id || userRow.username,
+        username: userRow.username,
+        displayName: userRow.display_name,
+        role: userRow.role,
+        isActive: userRow.is_active ?? true,
+        password: userRow.password
+      };
+
+      if (!user.isActive) {
+        throw new Error("This account has been disabled by the Administrator.");
+      }
+
+      localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+      return user;
+    } catch (err: any) {
+      console.error("Login authentication exception:", err.message);
       return null;
     }
   },
 
-  // Login
-  login(username: string, password: string): { success: boolean; user?: UserAccount; error?: string } {
-    const users = this.getUsers();
-    const cleanUser = username.trim().toLowerCase();
+  // Clear local session
+  logout: () => {
+    localStorage.removeItem(CURRENT_USER_KEY);
+  },
 
-    const matched = users.find(
-      (u) => u.username.toLowerCase() === cleanUser && u.passwordHash === password
-    );
+  // Fetch all accounts from Supabase
+  getAllAccounts: async (): Promise<UserAccount[]> => {
+    const { data, error } = await supabase
+      .from('user_accounts')
+      .select('*');
 
-    if (!matched) {
-      return { success: false, error: 'Invalid username or password credentials.' };
+    if (error || !data) {
+      console.error('Error fetching accounts from Supabase:', error);
+      return [];
     }
 
-    localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(matched));
-    return { success: true, user: matched };
+    return data.map((row: any) => ({
+      id: row.id || row.username,
+      username: row.username,
+      displayName: row.display_name,
+      role: row.role,
+      isActive: row.is_active ?? true,
+      password: row.password
+    }));
   },
 
-  // Logout
-  logout() {
-    localStorage.removeItem(STORAGE_KEY_SESSION);
-  },
 
-  // Update own credentials (username, password, display name)
-  updateProfile(userId: string, newUsername: string, newDisplayName: string, newPassword?: string): boolean {
-    const users = this.getUsers();
-    const targetIdx = users.findIndex((u) => u.id === userId);
-    if (targetIdx === -1) return false;
+// Inside your authStore.ts saveAccount method:
+saveAccount: async (account: UserAccount) => {
+  const payload: any = {
+    // Always provide an explicit id so it never evaluates to null
+    id: account.id && !account.id.startsWith('acc_') ? account.id : `usr_${Date.now()}`,
+    username: account.username.trim(),
+    display_name: account.displayName.trim(),
+    role: account.role,
+    ...(account.password ? { password: account.password } : {})
+  };
 
-    // Check if new username is taken by someone else
-    const usernameTaken = users.some(
-      (u) => u.id !== userId && u.username.toLowerCase() === newUsername.trim().toLowerCase()
-    );
-    if (usernameTaken) return false;
+  const { error } = await supabase
+    .from('user_accounts')
+    .upsert(payload, { onConflict: 'username' });
 
-    users[targetIdx].username = newUsername.trim();
-    users[targetIdx].displayName = newDisplayName.trim();
-    if (newPassword && newPassword.trim().length > 0) {
-      users[targetIdx].passwordHash = newPassword.trim();
+  if (error) {
+    console.error('Detailed Supabase Save Error:', JSON.stringify(error, null, 2));
+    throw error;
+  }
+
+  const currentUser = await authStore.getCurrentUser();
+  if (currentUser && currentUser.username === account.username) {
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(account));
+  }
+},
+  // Delete account from Supabase
+  deleteAccount: async (usernameOrId: string) => {
+    const { error } = await supabase
+      .from('user_accounts')
+      .delete()
+      .or(`id.eq.${usernameOrId},username.eq.${usernameOrId}`);
+
+    if (error) {
+      console.error('Error deleting account from Supabase:', error);
+      throw error;
     }
-
-    localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(users));
-    localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(users[targetIdx]));
-    return true;
-  },
-
-  // Add sub-user (Scorer / Viewer)
-  addUser(account: Omit<UserAccount, 'id' | 'createdAt'>): { success: boolean; error?: string } {
-    const users = this.getUsers();
-    const cleanUser = account.username.trim().toLowerCase();
-
-    if (users.some((u) => u.username.toLowerCase() === cleanUser)) {
-      return { success: false, error: 'Username already registered.' };
-    }
-
-    const newUser: UserAccount = {
-      ...account,
-      id: `usr_${Date.now()}`,
-      username: cleanUser,
-      createdAt: new Date().toISOString(),
-    };
-
-    users.push(newUser);
-    localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(users));
-    return { success: true };
-  },
-
-  // Remove sub-user
-  deleteUser(userId: string): boolean {
-    const users = this.getUsers();
-    if (userId === 'usr_commissioner') return false; // Prevent root lockout
-    const filtered = users.filter((u) => u.id !== userId);
-    localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(filtered));
-    return true;
-  },
+  }
 };

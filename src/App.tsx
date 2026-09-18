@@ -21,7 +21,7 @@ import {
   CheckCircle2, Camera, UserCheck, AlertCircle, 
   BarChart3, Plus, Users, Award, Flame, Edit3, 
   Trash2, LogOut, UserCog, Printer, FileText, Calendar, 
-  ArrowLeftRight, Lock, Download, Upload, Monitor, Activity, Zap, Palette
+  ArrowLeftRight, Lock, Download, Upload, Monitor, Activity, Zap, Palette, Megaphone
 } from 'lucide-react';
 
 // --- Domain Models ---
@@ -159,6 +159,41 @@ const DEFAULT_SESSION: TournamentSession = {
   endDate: '2026-09-21',
 };
 
+// --- Manual Arena Voice Announcer Utility ---
+const speakAnnouncement = (text: string) => {
+  if ('speechSynthesis' in window) {
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.05;
+    utterance.pitch = 1.1;
+    utterance.volume = 1.0;
+    window.speechSynthesis.speak(utterance);
+  }
+};
+
+// --- Flexible Starting Lineup Announcer Helper ---
+const announceStartingLineups = (team: Team) => {
+  if (!team || !team.players || team.players.length === 0) {
+    speakAnnouncement(`And now, introducing the players for ${team?.name || 'the team'}.`);
+    return;
+  }
+
+  let introScript = `And now, ladies and gentlemen, let's welcome the players for, ${team.name}! Head Coach, ${team.coachName || 'Staff'}. `;
+  
+  team.players.forEach((player) => {
+    const positionName = player.position || 'Player';
+    introScript += `${positionName}, ${player.name}! `;
+  });
+
+  introScript += `Let's get ready for tip-off!`;
+  
+  speakAnnouncement(introScript);
+
+  setTimeout(() => {
+    arenaAudio.playCrowdClapping();
+  }, 3500);
+};
+
 // --- Champion Banner Template Component for Free Facebook Automation ---
 interface ChampionBannerProps {
   tournamentName: string;
@@ -236,7 +271,6 @@ function HeaderActionCluster() {
       formData.append("image", blob, "champion.png");
       formData.append("message", `🏆 TOURNAMENT CHAMPIONS! 🏆\n\nCongratulations to Team Titans for taking the crown in the EPIC Inter-Barangay Circuit! 🏀🔥`);
 
-      // Directly use your hardcoded Supabase URL to bypass env issues
       const response = await fetch(`https://ukhmrgbkrfawgszltzsr.supabase.co/functions/v1/post-to-facebook`, {
         method: 'POST',
         body: formData,
@@ -310,7 +344,7 @@ export default function App() {
           .from('organizations')
           .select('*')
           .eq('id', activeSession.id)
-          .single();
+          .maybeSingle();
 
         if (orgData) {
           setCurrentTier(orgData.tier || 'free');
@@ -374,7 +408,7 @@ export default function App() {
           .from('game_settings')
           .select('*')
           .eq('org_id', activeSession.id)
-          .single();
+          .maybeSingle();
 
         if (settingsData) {
           setGameSettings({
@@ -460,6 +494,7 @@ export default function App() {
       setIsClockRunning(false);
       setActiveMatch((prev) => ({ ...prev, status: 'Final', quarter: 'Final' }));
       arenaAudio.playArenaBuzzer();
+      speakAnnouncement("The match is now final!");
     }
   };
 
@@ -484,13 +519,6 @@ export default function App() {
   const [shotClock, setShotClock] = useState(DEFAULT_SETTINGS.shotClockSeconds);
   const [isClockRunning, setIsClockRunning] = useState(false);
   const timerRef = useRef<number | null>(null);
-
-  // 10-second warning buzzer
-  useEffect(() => {
-    if (gameSeconds === 10 || shotClock === 10) {
-      arenaAudio.playSubstitutionHorn();
-    }
-  }, [gameSeconds, shotClock]);
 
   // Biometrics hydration
   useEffect(() => {
@@ -726,6 +754,9 @@ export default function App() {
       arenaAudio.playWhistle();
       const nextFouls = st.fouls + 1;
       const fouledOut = nextFouls >= gameSettings.foulDisqualificationLimit;
+      const nextTeamAFouls = teamKey === 'A' ? prev.teamAFouls + 1 : prev.teamAFouls;
+      const nextTeamBFouls = teamKey === 'B' ? prev.teamBFouls + 1 : prev.teamBFouls;
+
       const teamName = (teamKey === 'A' ? teams.find(t => t.id === prev.teamAId)?.name : teams.find(t => t.id === prev.teamBId)?.name) || 'Team';
 
       const logEntry: PlayLog = {
@@ -736,8 +767,8 @@ export default function App() {
 
       return {
         ...prev,
-        teamAFouls: teamKey === 'A' ? prev.teamAFouls + 1 : prev.teamAFouls,
-        teamBFouls: teamKey === 'B' ? prev.teamBFouls + 1 : prev.teamBFouls,
+        teamAFouls: nextTeamAFouls,
+        teamBFouls: nextTeamBFouls,
         logs: [logEntry, ...(prev.logs || [])],
         stats: {
           ...prev.stats,
@@ -962,7 +993,7 @@ export default function App() {
                 </label>
               </>
             )}
-            <button type="button" onClick={() => setIsAccountModalOpen(true)} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 cursor-pointer">
+            <button type="button" onClick={() => setIsAccountModalOpen(true)} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 cursor-pointer" title="Account Settings & RBAC">
               <UserCog className="w-4 h-4 text-blue-400" />
             </button>
             <button type="button" onClick={handleLogout} className="p-2 bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-900/50 rounded-lg cursor-pointer transition" title="Log Out">
@@ -1329,6 +1360,72 @@ export default function App() {
                         )}
                       </div>
                     </div>
+
+                    {/* Manual Arena Voice Announcer Soundboard Panel */}
+                    <div className={`mt-4 pt-4 border-t border-slate-800 bg-slate-950/60 p-3 rounded-2xl border ${isViewer ? 'opacity-60 pointer-events-none' : ''}`}>
+                      {isViewer && (
+                        <div className="mb-3 bg-amber-500/10 border border-amber-500/30 text-amber-400 p-2 rounded-xl text-[11px] font-bold text-center">
+                          👀 Spectator Mode: Announcer and sound effects are restricted to Table Officials and Commissioners.
+                        </div>
+                      )}
+                      <div className="flex items-center gap-2 mb-2">
+                        <Megaphone className="w-4 h-4 text-amber-400" />
+                        <span className="text-[11px] font-black uppercase tracking-wider text-amber-400">Manual Arena Voice Announcer Panel</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
+                        <button 
+                          type="button" 
+                          disabled={isViewer}
+                          onClick={() => { 
+                            arenaAudio.playSubstitutionHorn(); 
+                            speakAnnouncement("Ladies and gentlemen, teams, get ready! One minute until tip-off! Clear the court, check your QR passes and face recognition, and let's bring the energy. The battle for supremacy in the EPIC Tournament Circuit starts right now! Five, four, three, two, one, let's play!"); 
+                          }} 
+                          className="bg-amber-600 hover:bg-amber-500 text-slate-950 py-1.5 px-2 rounded-xl text-[11px] font-black cursor-pointer transition border border-amber-400 col-span-2 sm:col-span-4 lg:col-span-2 disabled:opacity-50"
+                        >
+                          🔥 1-Min Pre-Game Countdown
+                        </button>
+                        <button 
+                          type="button" 
+                          disabled={isViewer || !teamA} 
+                          onClick={() => teamA && announceStartingLineups(teamA)} 
+                          className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 py-1.5 px-2 rounded-xl text-[11px] font-bold cursor-pointer transition border border-amber-500/30 disabled:opacity-40"
+                        >
+                          🎙️ Intro Home Lineup ({teamA?.name || 'Home'})
+                        </button>
+                        <button 
+                          type="button" 
+                          disabled={isViewer || !teamB} 
+                          onClick={() => teamB && announceStartingLineups(teamB)} 
+                          className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 py-1.5 px-2 rounded-xl text-[11px] font-bold cursor-pointer transition border border-cyan-500/30 disabled:opacity-40"
+                        >
+                          🎙️ Intro Away Lineup ({teamB?.name || 'Away'})
+                        </button>
+                        <button type="button" disabled={isViewer} onClick={() => speakAnnouncement("Five minutes pre-play warmup remaining for each team before the game starts.")} className="bg-blue-950/40 hover:bg-blue-900/60 text-blue-300 py-1.5 px-2 rounded-xl text-[11px] font-bold cursor-pointer transition border border-blue-900/50 disabled:opacity-50">
+                          ⏳ 5 Mins Pre-Play
+                        </button>
+                        <button type="button" disabled={isViewer} onClick={() => speakAnnouncement("Ten minutes before game start, facial recognition and QR code scanning will begin. No face recognition and QR code scanning, no play!")} className="bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 py-1.5 px-2 rounded-xl text-[11px] font-bold cursor-pointer transition border border-amber-900/50 disabled:opacity-50">
+                          📷 10 Mins Scan Call
+                        </button>
+                        <button type="button" disabled={isViewer} onClick={() => speakAnnouncement("Two minutes remaining in the period.")} className="bg-slate-800 hover:bg-slate-700 text-slate-200 py-1.5 px-2 rounded-xl text-[11px] font-bold cursor-pointer transition border border-slate-700 disabled:opacity-50">
+                          ⏱️ 2 Min Warning
+                        </button>
+                        <button type="button" disabled={isViewer} onClick={() => speakAnnouncement("One minute remaining.")} className="bg-slate-800 hover:bg-slate-700 text-slate-200 py-1.5 px-2 rounded-xl text-[11px] font-bold cursor-pointer transition border border-slate-700 disabled:opacity-50">
+                          ⏱️ 1 Min Warning
+                        </button>
+                        <button type="button" disabled={isViewer} onClick={() => { arenaAudio.playSubstitutionHorn(); speakAnnouncement("Ten seconds remaining."); }} className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 py-1.5 px-2 rounded-xl text-[11px] font-bold cursor-pointer transition border border-amber-500/30 disabled:opacity-50">
+                          🔔 Final 10 Seconds
+                        </button>
+                        <button type="button" disabled={isViewer} onClick={() => { arenaAudio.playArenaBuzzer(); speakAnnouncement("Shot clock violation!"); }} className="bg-red-950/40 hover:bg-red-900/60 text-red-300 py-1.5 px-2 rounded-xl text-[11px] font-bold cursor-pointer transition border border-red-900/50 disabled:opacity-50">
+                          🚨 Shot Clock Violation
+                        </button>
+                        <button type="button" disabled={isViewer} onClick={() => speakAnnouncement(`Current score: Home team ${activeMatch.scoreA}, Away team ${activeMatch.scoreB}.`)} className="bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 py-1.5 px-2 rounded-xl text-[11px] font-bold cursor-pointer transition border border-blue-500/30 disabled:opacity-50">
+                          📊 Announce Score
+                        </button>
+                        <button type="button" disabled={isViewer} onClick={() => speakAnnouncement("The team is in the bonus.")} className="bg-purple-950/40 hover:bg-purple-900/60 text-purple-300 py-1.5 px-2 rounded-xl text-[11px] font-bold cursor-pointer transition border border-purple-900/50 disabled:opacity-50">
+                          ⚠️ Bonus Fouls
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -1390,7 +1487,7 @@ export default function App() {
                                       {st.isCheckedIn ? <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-bold"><CheckCircle2 className="w-3 h-3" /> Ready</span> : <span className="inline-flex items-center gap-1 text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-bold"><AlertCircle className="w-3 h-3" /> Locked</span>}
                                     </td>
                                     <td className="p-3 text-center">
-                                      <button type="button" disabled={!st.isCheckedIn || activeMatch.status === 'Final'} onClick={() => togglePlayerOnCourt(p.id)} className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition ${st.isOnCourt ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'} disabled:opacity-50`}>
+                                      <button type="button" disabled={isViewer || !st.isCheckedIn || activeMatch.status === 'Final'} onClick={() => togglePlayerOnCourt(p.id)} className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition ${st.isOnCourt ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'} disabled:opacity-50`}>
                                         {st.isOnCourt ? 'On Court' : 'Bench'}
                                       </button>
                                     </td>

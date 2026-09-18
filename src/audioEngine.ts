@@ -13,6 +13,8 @@ class ArenaAudioEngine {
     subHorn: 'https://cdn.freesound.org/previews/369/369952_6687700-lq.mp3',
     // Pure indoor hardwood nylon swish sound
     nbaSwish: 'https://cdn.freesound.org/previews/518/518888_11270273-lq.mp3',
+    // Authentic indoor stadium crowd clapping and cheering
+    crowdClapping: 'https://actions.google.com/sounds/v1/ambiences/indoor_stadium_crowd.ogg',
   };
 
   constructor() {
@@ -71,9 +73,13 @@ class ArenaAudioEngine {
     this.playMediaAudio('nbaSwish', () => this.synthesizeSwish(), 0.8);
   }
 
+  // 5. Arena Crowd Clapping & Ovation (Lineup Intros & Victories)
+  playCrowdClapping() {
+    this.playMediaAudio('crowdClapping', () => this.synthesizeClapping(), 0.75);
+  }
+
   // --- Acoustic Synthesizer Fallbacks (Tuned to NBA Frequencies) ---
 
-  // Synthesizes the distinctive 120Hz + 233Hz dual-tone electro-mechanical arena horn
   private synthesizeNbaBuzzer(durationMs = 1500) {
     const ctx = this.getContext();
     const now = ctx.currentTime;
@@ -84,15 +90,14 @@ class ArenaAudioEngine {
     const osc3 = ctx.createOscillator();
     const gainNode = ctx.createGain();
 
-    // NBA Arena horns use a low harmonic triad
     osc1.type = 'sawtooth';
-    osc1.frequency.setValueAtTime(118, now); // Low fundamental buzz
+    osc1.frequency.setValueAtTime(118, now);
 
     osc2.type = 'sawtooth';
-    osc2.frequency.setValueAtTime(236, now); // Octave overtone
+    osc2.frequency.setValueAtTime(236, now);
 
     osc3.type = 'square';
-    osc3.frequency.setValueAtTime(354, now); // Sharp piercing harmonic
+    osc3.frequency.setValueAtTime(354, now);
 
     gainNode.gain.setValueAtTime(0.4, now);
     gainNode.gain.setValueAtTime(0.4, now + dur - 0.1);
@@ -120,8 +125,8 @@ class ArenaAudioEngine {
     const gainNode = ctx.createGain();
 
     osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(466.16, now); // Bb4 note
-    osc.frequency.setValueAtTime(392.00, now + 0.18); // G4 note (Dual-tone table chirp)
+    osc.frequency.setValueAtTime(466.16, now);
+    osc.frequency.setValueAtTime(392.00, now + 0.18);
 
     gainNode.gain.setValueAtTime(0.3, now);
     gainNode.gain.exponentialRampToValueAtTime(0.001, now + dur);
@@ -146,7 +151,7 @@ class ArenaAudioEngine {
     osc1.frequency.setValueAtTime(2950, now);
 
     osc2.type = 'sine';
-    osc2.frequency.setValueAtTime(2985, now); // Heterodyne interference trill
+    osc2.frequency.setValueAtTime(2985, now);
 
     gainNode.gain.setValueAtTime(0.25, now);
     gainNode.gain.exponentialRampToValueAtTime(0.001, now + dur);
@@ -183,6 +188,38 @@ class ArenaAudioEngine {
     const gainNode = ctx.createGain();
     gainNode.gain.setValueAtTime(0.3, now);
     gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+
+    noise.connect(filter);
+    filter.connect(gainNode);
+    gainNode.connect(ctx.destination);
+
+    noise.start(now);
+  }
+
+  // Fallback synthetic stadium clapping and cheering noise simulation
+  private synthesizeClapping(durationMs = 3000) {
+    const ctx = this.getContext();
+    const now = ctx.currentTime;
+    const dur = durationMs / 1000;
+    const bufferSize = ctx.sampleRate * dur;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * 0.4;
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'highpass';
+    filter.frequency.setValueAtTime(1200, now); // Sharp transient sounds for clapping
+
+    const gainNode = ctx.createGain();
+    gainNode.gain.setValueAtTime(0.01, now);
+    gainNode.gain.linearRampToValueAtTime(0.3, now + 0.5);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, now + dur);
 
     noise.connect(filter);
     filter.connect(gainNode);
