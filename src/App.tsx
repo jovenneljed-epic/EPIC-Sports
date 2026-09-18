@@ -21,7 +21,7 @@ import {
   CheckCircle2, Camera, UserCheck, AlertCircle, 
   BarChart3, Plus, Users, Award, Flame, Edit3, 
   Trash2, LogOut, UserCog, Printer, FileText, Calendar, 
-  ArrowLeftRight, Lock, Download, Upload, Monitor, Activity, Zap, Palette, Megaphone
+  ArrowLeftRight, Lock, Download, Upload, Monitor, Activity, Zap, Palette, Megaphone, QrCode
 } from 'lucide-react';
 
 // --- Domain Models ---
@@ -1300,6 +1300,27 @@ export default function App() {
                     )}
                   </div>
                 </div>
+
+                {/* Quick Scanner Action Bar for Table Officials */}
+                {!isViewer && (
+                  <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 p-3 rounded-2xl shadow-md">
+                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Player Verification:</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsLivenessModalOpen(true)}
+                      className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow"
+                    >
+                      <Camera className="w-3.5 h-3.5" /> Face Liveness Scanner
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsQrScannerOpen(true)}
+                      className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow"
+                    >
+                      <QrCode className="w-3.5 h-3.5" /> QR Pass Scanner
+                    </button>
+                  </div>
+                )}
 
                 {/* Scoreboard */}
                 {teamA && teamB && (
