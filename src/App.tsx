@@ -218,11 +218,11 @@ const ChampionBanner = React.forwardRef<HTMLDivElement, ChampionBannerProps>(
 ChampionBanner.displayName = 'ChampionBanner';
 
 // --- Header Action Cluster for Free FB Automated Posting ---
-function HeaderActionCluster({ sessionId }: { sessionId: string }) {
+function HeaderActionCluster() {
   const bannerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
 
- const handleTestPost = async () => {
+  const handleTestPost = async () => {
     if (!bannerRef.current) return;
     setLoading(true);
 
@@ -911,7 +911,7 @@ export default function App() {
 
           <div className="flex items-center gap-1.5 justify-end w-full md:w-auto flex-wrap">
             {/* Automated Free Facebook Test Button */}
-            <HeaderActionCluster sessionId={activeSession.id} />
+            <HeaderActionCluster />
 
             {/* Active Subscription Tier Badge */}
             <div className={`px-2.5 py-1 text-[11px] font-black uppercase rounded-lg border ${
