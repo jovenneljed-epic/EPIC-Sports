@@ -10,7 +10,7 @@ export interface UserAccount {
 }
 
 const CURRENT_USER_KEY = 'epic_current_user';
-const STORAGE_KEY = 'epic_accounts';
+
 
 export const authStore = {
   // Retrieve currently logged-in user session

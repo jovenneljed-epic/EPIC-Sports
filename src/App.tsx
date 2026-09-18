@@ -312,7 +312,17 @@ function HeaderActionCluster() {
 }
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => authStore.getCurrentUser());
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  
+  // Initialize session safely using useEffect
+  useEffect(() => {
+    async function initSession() {
+      const user = await authStore.getCurrentUser();
+      setCurrentUser(user);
+    }
+    initSession();
+  }, []);
+
   const [activeTab, setActiveTab] = useState<NavTab>('roster');
   const [isSpectatorMode, setIsSpectatorMode] = useState<boolean>(false);
   const [selectedSportTab, setSelectedSportTab] = useState<SportType>('basketball');
