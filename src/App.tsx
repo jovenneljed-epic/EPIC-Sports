@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import html2canvas from 'html2canvas';
 import { supabase } from './supabaseClient';
 import { arenaAudio } from './audioEngine';
 import { authStore, type UserAccount } from './auth/authStore';
@@ -157,6 +158,124 @@ const DEFAULT_SESSION: TournamentSession = {
   startDate: '2026-09-20',
   endDate: '2026-09-21',
 };
+
+// --- Champion Banner Template Component for Free Facebook Automation ---
+interface ChampionBannerProps {
+  tournamentName: string;
+  winner: string;
+  loser: string;
+  score: string;
+}
+
+const ChampionBanner = React.forwardRef<HTMLDivElement, ChampionBannerProps>(
+  ({ tournamentName, winner, loser, score }, ref) => {
+    return (
+      <div style={{ position: 'absolute', top: -9999, left: -9999, visibility: 'visible' }}>
+        <div
+          ref={ref}
+          style={{
+            width: '1200px',
+            height: '630px',
+            background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)',
+            color: '#ffffff',
+            fontFamily: 'sans-serif',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'space-between',
+            padding: '60px',
+            boxSizing: 'border-box',
+            border: '8px solid #f59e0b',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#f59e0b', letterSpacing: '2px' }}>
+              EPIC SPORTS CIRCUIT
+            </span>
+            <span style={{ fontSize: '20px', color: '#93c5fd' }}>{tournamentName}</span>
+          </div>
+
+          <div style={{ textAlign: 'center', margin: 'auto 0' }}>
+            <div style={{ fontSize: '32px', textTransform: 'uppercase', color: '#f59e0b', fontWeight: 'bold', marginBottom: '10px' }}>
+              🏆 Official Champions 🏆
+            </div>
+            <h1 style={{ fontSize: '72px', margin: '0 0 20px 0', fontWeight: '900', textShadow: '0 4px 10px rgba(0,0,0,0.5)' }}>
+              {winner}
+            </h1>
+            <div style={{ fontSize: '28px', color: '#cbd5e1' }}>
+              Defeated {loser} • Final Score: <span style={{ color: '#6ee7b7', fontWeight: 'bold' }}>{score}</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '2px solid rgba(255,255,255,0.2)', paddingTop: '20px' }}>
+            <span style={{ fontSize: '18px', color: '#94a3b8' }}>#EPICSports #Championship #Victory</span>
+            <span style={{ fontSize: '18px', color: '#f59e0b', fontWeight: 'bold' }}>The Home of Champions</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+);
+ChampionBanner.displayName = 'ChampionBanner';
+
+// --- Header Action Cluster for Free FB Automated Posting ---
+function HeaderActionCluster({ sessionId }: { sessionId: string }) {
+  const bannerRef = useRef<HTMLDivElement>(null);
+  const [loading, setLoading] = useState(false);
+
+ const handleTestPost = async () => {
+    if (!bannerRef.current) return;
+    setLoading(true);
+
+    try {
+      const canvas = await html2canvas(bannerRef.current, { scale: 2 });
+      const blob = await new Promise<Blob>((resolve) => 
+        canvas.toBlob((b) => resolve(b!), 'image/png')
+      );
+
+      const formData = new FormData();
+      formData.append("image", blob, "champion.png");
+      formData.append("message", `🏆 TOURNAMENT CHAMPIONS! 🏆\n\nCongratulations to Team Titans for taking the crown in the EPIC Inter-Barangay Circuit! 🏀🔥`);
+
+      // Directly use your hardcoded Supabase URL to bypass env issues
+      const response = await fetch(`https://ukhmrgbkrfawgszltzsr.supabase.co/functions/v1/post-to-facebook`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        alert("Success! Check your Facebook page to see your free automated champion post.");
+      } else {
+        alert(`Failed: ${result.error || JSON.stringify(result)}`);
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert(`Error: ${err.message || err}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <ChampionBanner 
+        ref={bannerRef} 
+        tournamentName="EPIC Inter-Barangay Circuit" 
+        winner="Team Titans" 
+        loser="Ballers United" 
+        score="88 - 82" 
+      />
+      <button
+        onClick={handleTestPost}
+        disabled={loading}
+        className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded-md text-xs font-bold transition flex items-center gap-1 shadow-sm disabled:opacity-50 cursor-pointer"
+        title="Test Automated Facebook Champion Post"
+      >
+        {loading ? 'Broadcasting...' : '📢 Test FB Post'}
+      </button>
+    </>
+  );
+}
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => authStore.getCurrentUser());
@@ -791,6 +910,9 @@ export default function App() {
           </nav>
 
           <div className="flex items-center gap-1.5 justify-end w-full md:w-auto flex-wrap">
+            {/* Automated Free Facebook Test Button */}
+            <HeaderActionCluster sessionId={activeSession.id} />
+
             {/* Active Subscription Tier Badge */}
             <div className={`px-2.5 py-1 text-[11px] font-black uppercase rounded-lg border ${
               currentTier === 'pro' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' :
@@ -918,7 +1040,7 @@ export default function App() {
                     <Plus className="w-4 h-4" /> Add {selectedSportTab} Team
                   </button>
                 )}
-            </div>
+              </div>
             ) : (
               <div className="space-y-8">
                 {filteredTeams.map((team) => (
