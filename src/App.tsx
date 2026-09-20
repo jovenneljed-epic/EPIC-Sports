@@ -353,7 +353,38 @@ export default function App() {
   const [scheduledMatches, setScheduledMatches] = useState<ScheduledMatch[]>([]);
   const [gameSettings, setGameSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
 
-  // Cloud Sync Data Fetcher from Supabase
+  const [activeMatch, setActiveMatch] = useState<Match>(() => {
+    const defaultState: Match = {
+      id: `m_${Date.now()}`,
+      sessionId: DEFAULT_SESSION.id,
+      sportType: DEFAULT_SESSION.sportType,
+      teamAId: '',
+      teamBId: '',
+      scoreA: 0,
+      scoreB: 0,
+      quarter: 'Q1',
+      court: DEFAULT_SETTINGS.courtName,
+      status: 'Live',
+      teamAFouls: 0,
+      teamBFouls: 0,
+      possession: 'A',
+      setsA: 0,
+      setsB: 0,
+      currentSet: 1,
+      history: [],
+      logs: [],
+      stats: {},
+    };
+    return defaultState;
+  });
+
+  // Clock
+  const [gameSeconds, setGameSeconds] = useState(DEFAULT_SETTINGS.quarterMinutes * 60);
+  const [shotClock, setShotClock] = useState(DEFAULT_SETTINGS.shotClockSeconds);
+  const [isClockRunning, setIsClockRunning] = useState(false);
+  const timerRef = useRef<number | null>(null);
+
+  // Cloud Sync Data Fetcher from Supabase & Restore Live Match State
   useEffect(() => {
     async function loadCloudData() {
       try {
@@ -436,6 +467,20 @@ export default function App() {
             courtName: settingsData.court_name
           });
         }
+
+        // Restore ongoing live match from database if available
+        const { data: savedLiveMatch } = await supabase
+          .from('live_active_matches')
+          .select('*')
+          .eq('org_id', activeSession.id)
+          .maybeSingle();
+
+        if (savedLiveMatch?.match_data) {
+          const m = savedLiveMatch.match_data;
+          setActiveMatch(m);
+          if (m.gameSeconds !== undefined) setGameSeconds(m.gameSeconds);
+          if (m.shotClock !== undefined) setShotClock(m.shotClock);
+        }
       } catch (err) {
         console.error('Error loading cloud data from Supabase:', err);
       }
@@ -446,35 +491,33 @@ export default function App() {
     }
   }, [activeSession.id, currentUser]);
 
+  // Real-time Auto-Persistence to Database during live matches
+  useEffect(() => {
+    if (!activeSession?.id || activeMatch.status === 'Final') return;
+
+    const autoSaveTimer = setTimeout(async () => {
+      try {
+        await supabase.from('live_active_matches').upsert({
+          org_id: activeSession.id,
+          match_data: {
+            ...activeMatch,
+            gameSeconds,
+            shotClock,
+          },
+          updated_at: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.error('Auto-save match state error:', err);
+      }
+    }, 1000);
+
+    return () => clearTimeout(autoSaveTimer);
+  }, [activeMatch, gameSeconds, shotClock, activeSession?.id]);
+
   // Compute completed matches count for this session
   const completedMatchesCount = useMemo(() => {
     return scheduledMatches.filter((m) => m.status === 'Completed').length;
   }, [scheduledMatches]);
-
-  const [activeMatch, setActiveMatch] = useState<Match>(() => {
-    const defaultState: Match = {
-      id: `m_${Date.now()}`,
-      sessionId: activeSession?.id || 'epic-circuit-2026',
-      sportType: activeSession?.sportType || 'basketball',
-      teamAId: '',
-      teamBId: '',
-      scoreA: 0,
-      scoreB: 0,
-      quarter: 'Q1',
-      court: DEFAULT_SETTINGS.courtName,
-      status: 'Live',
-      teamAFouls: 0,
-      teamBFouls: 0,
-      possession: 'A',
-      setsA: 0,
-      setsB: 0,
-      currentSet: 1,
-      history: [],
-      logs: [],
-      stats: {},
-    };
-    return defaultState;
-  });
 
   // Dynamic PayMongo Checkout Handler with Tier Support
   const handleSelectTier = async (tierKey: 'basic' | 'essential' | 'pro') => {
@@ -500,7 +543,7 @@ export default function App() {
   };
 
   // Match Finalization Check against Tier Limits
-  const handleAttemptFinalizeMatch = () => {
+  const handleAttemptFinalizeMatch = async () => {
     const canProceed = checkCanFinalizeMatch(currentTier, completedMatchesCount);
     if (!canProceed) {
       setShowUpgradeModal(true);
@@ -512,6 +555,9 @@ export default function App() {
       setActiveMatch((prev) => ({ ...prev, status: 'Final', quarter: 'Final' }));
       arenaAudio.playArenaBuzzer();
       speakAnnouncement("The match is now final!");
+
+      // Clear ongoing match persistence upon finalization
+      await supabase.from('live_active_matches').delete().eq('org_id', activeSession.id);
     }
   };
 
@@ -530,12 +576,6 @@ export default function App() {
   const [queueTeamA, setQueueTeamA] = useState('');
   const [queueTeamB, setQueueTeamB] = useState('');
   const [queueTime, setQueueTime] = useState('10:00 AM');
-
-  // Clock
-  const [gameSeconds, setGameSeconds] = useState(DEFAULT_SETTINGS.quarterMinutes * 60);
-  const [shotClock, setShotClock] = useState(DEFAULT_SETTINGS.shotClockSeconds);
-  const [isClockRunning, setIsClockRunning] = useState(false);
-  const timerRef = useRef<number | null>(null);
 
   // Biometrics hydration
   useEffect(() => {
