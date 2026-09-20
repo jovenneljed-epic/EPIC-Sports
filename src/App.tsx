@@ -9,13 +9,13 @@ import { FaceLivenessScannerModal } from './components/FaceLivenessScannerModal'
 import { QrAttendanceScannerModal } from './components/QrAttendanceScannerModal';
 import { CreateTeamModal } from './components/CreateTeamModal';
 import { GameSettingsModal, type GameSettings } from './components/GameSettingsModal';
-import { AdminLoginGate } from './components/AdminLoginGate';
 import { AccountManagerModal } from './components/AccountManagerModal';
 import { PlayerLeaderboardView } from './components/PlayerLeaderboardView';
 import { SmartScheduleGenerator } from './components/SmartScheduleGenerator';
 import { LeagueBrandingModal, type LeagueBranding } from './components/LeagueBrandingModal';
 import { PublicTeamRegistration } from './components/PublicTeamRegistration';
 import { CommissionerGameGenerator } from './components/CommissionerGameGenerator';
+import { GameLoginGate } from './components/GameLoginGate';
 import { checkCanFinalizeMatch, TIER_PRICES } from './utils/tierLimits';
 import { 
   Play, Pause, X, Clock, Volume2, 
@@ -297,6 +297,7 @@ function HeaderActionCluster({ isCommissioner }: HeaderActionClusterProps) {
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  const [authenticatedGameToken, setAuthenticatedGameToken] = useState<any>(null);
    
   useEffect(() => {
     async function initSession() {
@@ -458,10 +459,10 @@ export default function App() {
       }
     }
 
-    if (currentUser) {
+    if (currentUser || authenticatedGameToken) {
       loadCloudData();
     }
-  }, [activeSession.id, currentUser]);
+  }, [activeSession.id, currentUser, authenticatedGameToken]);
 
   // Multi-Court Real-Time Auto-Persistence keyed by match_id
   useEffect(() => {
@@ -559,13 +560,14 @@ export default function App() {
         console.warn('Supabase offline:', e);
       }
     }
-    if (currentUser) loadBiometrics();
+    if (currentUser || authenticatedGameToken) loadBiometrics();
     return () => { isMounted = false; };
-  }, [currentUser]);
+  }, [currentUser, authenticatedGameToken]);
 
   const handleLogout = () => {
     authStore.logout();
     setCurrentUser(null);
+    setAuthenticatedGameToken(null);
   };
 
   const handleSaveSettings = async (newSettings: GameSettings) => {
@@ -819,12 +821,27 @@ export default function App() {
   const teamB = useMemo(() => teams.find((t) => t.id === activeMatch.teamBId), [teams, activeMatch.teamBId]);
   const currentSportConfig = SPORT_CONFIGS[activeMatch.sportType || 'basketball'];
 
-  if (!currentUser) {
-    return <AdminLoginGate onAuthenticated={(user) => setCurrentUser(user)} />;
+  // Authentication & Court Token Gate Check
+  if (!currentUser && !authenticatedGameToken) {
+    return (
+      <GameLoginGate 
+        onGameAuthenticated={(matchData) => {
+          setAuthenticatedGameToken(matchData);
+          setActiveMatch((prev) => ({
+            ...prev,
+            id: matchData.game_id,
+            sportType: matchData.sport_type || 'basketball',
+            court: matchData.court_name || 'Court 1',
+            status: 'Live',
+          }));
+          setActiveTab('desk');
+        }} 
+      />
+    );
   }
 
-  const isCommissioner = currentUser.role === 'commissioner';
-  const isViewer = currentUser.role === 'viewer';
+  const isCommissioner = currentUser ? currentUser.role === 'commissioner' : false;
+  const isViewer = currentUser ? currentUser.role === 'viewer' : false;
 
   // --- SPECTATOR TV DISPLAY MODE ---
   if (isSpectatorMode) {
@@ -996,9 +1013,11 @@ export default function App() {
                 </label>
               </>
             )}
-            <button type="button" onClick={() => setIsAccountModalOpen(true)} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 cursor-pointer" title="Account Settings & RBAC">
-              <UserCog className="w-4 h-4 text-blue-400" />
-            </button>
+            {currentUser && (
+              <button type="button" onClick={() => setIsAccountModalOpen(true)} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 cursor-pointer" title="Account Settings & RBAC">
+                <UserCog className="w-4 h-4 text-blue-400" />
+              </button>
+            )}
             <button type="button" onClick={handleLogout} className="p-2 bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-900/50 rounded-lg cursor-pointer transition" title="Log Out">
               <LogOut className="w-4 h-4" />
             </button>
