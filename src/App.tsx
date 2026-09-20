@@ -19,9 +19,9 @@ import { checkCanFinalizeMatch, TIER_PRICES } from './utils/tierLimits';
 import { 
   Play, Pause, X, Clock, Volume2, 
   CheckCircle2, Camera, UserCheck, AlertCircle, 
-  BarChart3, Plus, Users, Award, Flame, Edit3, 
-  Trash2, LogOut, UserCog, Printer, FileText, Calendar, 
-  ArrowLeftRight, Lock, Download, Upload, Monitor, Activity, Zap, Palette, Megaphone, QrCode
+  BarChart3, Plus, Users, Award, Edit3, 
+  Trash2, LogOut, UserCog, FileText, Calendar, 
+  Lock, Download, Upload, Monitor, Zap, Palette, QrCode
 } from 'lucide-react';
 
 // --- Domain Models ---
@@ -169,29 +169,6 @@ const speakAnnouncement = (text: string) => {
     utterance.volume = 1.0;
     window.speechSynthesis.speak(utterance);
   }
-};
-
-// --- Flexible Starting Lineup Announcer Helper ---
-const announceStartingLineups = (team: Team) => {
-  if (!team || !team.players || team.players.length === 0) {
-    speakAnnouncement(`And now, introducing the players for ${team?.name || 'the team'}.`);
-    return;
-  }
-
-  let introScript = `And now, ladies and gentlemen, let's welcome the players for, ${team.name}! Head Coach, ${team.coachName || 'Staff'}. `;
-  
-  team.players.forEach((player) => {
-    const positionName = player.position || 'Player';
-    introScript += `${positionName}, ${player.name}! `;
-  });
-
-  introScript += `Let's get ready for tip-off!`;
-  
-  speakAnnouncement(introScript);
-
-  setTimeout(() => {
-    arenaAudio.playCrowdClapping();
-  }, 3500);
 };
 
 // --- Champion Banner Template Component for Free Facebook Automation ---
@@ -546,7 +523,6 @@ export default function App() {
       arenaAudio.playArenaBuzzer();
       speakAnnouncement("The match is now final!");
 
-      // Clear specific match row from multi-court persistence
       await supabase.from('live_active_matches').delete().eq('match_id', activeMatch.id);
     }
   };
@@ -559,11 +535,6 @@ export default function App() {
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
-
-  const [queueSportType, setQueueSportType] = useState<SportType>(activeSession.sportType || 'basketball');
-  const [queueTeamA, setQueueTeamA] = useState('');
-  const [queueTeamB, setQueueTeamB] = useState('');
-  const [queueTime, setQueueTime] = useState('10:00 AM');
 
   // Biometrics hydration
   useEffect(() => {
@@ -1182,60 +1153,6 @@ export default function App() {
               />
             )}
 
-            {isCommissioner && teams.length >= 2 && (
-              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 sm:p-5 shadow-xl space-y-4">
-                <h3 className="text-xs font-black uppercase tracking-wider text-blue-400">Schedule New Matchup Manually</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-                  <div>
-                    <label className="block font-bold text-slate-400 mb-1">Sport Type</label>
-                    <select value={queueSportType} onChange={(e) => { setQueueSportType(e.target.value as SportType); setQueueTeamA(''); setQueueTeamB(''); }} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold">
-                      <option value="basketball">Basketball</option>
-                      <option value="volleyball">Volleyball</option>
-                      <option value="badminton">Badminton</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block font-bold text-slate-400 mb-1">Home Team</label>
-                    <select value={queueTeamA} onChange={(e) => setQueueTeamA(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold">
-                      <option value="">Select Home Team</option>
-                      {teams.filter((t) => (t.sportType || 'basketball') === queueSportType).filter((t) => t.id !== queueTeamB).map((t) => (<option key={t.id} value={t.id}>{t.name}</option>))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block font-bold text-slate-400 mb-1">Away Team</label>
-                    <select value={queueTeamB} onChange={(e) => setQueueTeamB(e.target.value)} className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold">
-                      <option value="">Select Away Team</option>
-                      {teams.filter((t) => (t.sportType || 'basketball') === queueSportType).filter((t) => t.id !== queueTeamA).map((t) => (<option key={t.id} value={t.id}>{t.name}</option>))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block font-bold text-slate-400 mb-1">Time Slot</label>
-                    <div className="flex gap-2">
-                      <input type="text" placeholder="e.g. 10:00 AM" value={queueTime} onChange={(e) => setQueueTime(e.target.value)} className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-bold" />
-                      <button type="button" onClick={async () => {
-                        if (!queueTeamA || !queueTeamB || queueTeamA === queueTeamB) { alert('Select two distinct teams.'); return; }
-                        const newMatch: ScheduledMatch = { id: `sched_${Date.now()}`, sessionId: activeSession.id, sportType: queueSportType, teamAId: queueTeamA, teamBId: queueTeamB, timeSlot: queueTime.trim() || 'TBD', status: 'Upcoming' };
-                        setScheduledMatches((prev) => [...prev, newMatch]);
-                        
-                        await supabase.from('scheduled_matches').upsert({
-                          id: newMatch.id,
-                          org_id: activeSession.id,
-                          sport_type: newMatch.sportType,
-                          team_a_id: newMatch.teamAId,
-                          team_b_id: newMatch.teamBId,
-                          time_slot: newMatch.timeSlot,
-                          status: newMatch.status,
-                          updated_at: new Date().toISOString()
-                        });
-
-                        setQueueTeamA(''); setQueueTeamB('');
-                      }} className="bg-blue-600 hover:bg-blue-500 text-white font-black px-4 py-2 rounded-xl cursor-pointer shadow whitespace-nowrap">Add</button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {scheduledMatches.length === 0 ? (
               <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-8 text-center text-xs text-slate-400">No matches scheduled yet.</div>
             ) : (
@@ -1258,10 +1175,6 @@ export default function App() {
                           setActiveMatch((prev) => ({ ...prev, id: m.id, sessionId: activeSession.id, sportType: m.sportType, teamAId: m.teamAId, teamBId: m.teamBId, scoreA: 0, scoreB: 0, setsA: 0, setsB: 0, currentSet: 1, history: [], logs: [], quarter: 'Q1', status: 'Live', teamAFouls: 0, teamBFouls: 0, stats: {} }));
                           handleTabChange('desk');
                         }} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-2 rounded-xl text-xs cursor-pointer shadow whitespace-nowrap">Load to Desk</button>
-                        {isCommissioner && <button type="button" onClick={async () => {
-                          setScheduledMatches((prev) => prev.filter((item) => item.id !== m.id));
-                          await supabase.from('scheduled_matches').delete().eq('id', m.id);
-                        }} className="text-slate-500 hover:text-red-400 p-1.5 cursor-pointer"><Trash2 className="w-4 h-4" /></button>}
                       </div>
                     </div>
                   );
@@ -1271,7 +1184,6 @@ export default function App() {
           </div>
         )}
 
-        {/* VIEW 3: SCORER DESK & CHRONOLOGICAL LOG */}
         {activeTab === 'desk' && (
           <div className="space-y-6 print:hidden">
             {teams.length < 2 ? (
@@ -1293,20 +1205,8 @@ export default function App() {
                     </div>
                     <button type="button" onClick={() => handleTabChange('schedule')} className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-blue-400 border border-slate-700 rounded-lg font-bold text-[11px] cursor-pointer transition flex items-center gap-1"><Calendar className="w-3 h-3" /> Change</button>
                   </div>
-
-                  <div className="flex items-center gap-1.5 overflow-x-auto">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase whitespace-nowrap">{currentSportConfig.periodsName}:</span>
-                    {currentSportConfig.hasSets ? (
-                      <span className="px-3 py-1 rounded bg-blue-600 text-white font-black text-xs">Set {activeMatch.currentSet || 1}</span>
-                    ) : (
-                      (['Q1', 'Q2', 'Q3', 'Q4', 'OT', 'Final'] as Quarter[]).map((q) => (
-                        <button key={q} type="button" disabled={isViewer || activeMatch.status === 'Final'} onClick={() => setActiveMatch((prev) => ({ ...prev, quarter: q }))} className={`px-2 py-0.5 rounded font-bold transition cursor-pointer text-[11px] disabled:opacity-50 whitespace-nowrap ${activeMatch.quarter === q ? 'bg-blue-600 text-white font-black' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>{q}</button>
-                      ))
-                    )}
-                  </div>
                 </div>
 
-                {/* Quick Scanner Action Bar for Table Officials */}
                 {!isViewer && (
                   <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 p-3 rounded-2xl shadow-md">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Player Verification:</span>
@@ -1327,7 +1227,6 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Scoreboard */}
                 {teamA && teamB && (
                   <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-6 shadow-2xl relative">
                     <div className="flex flex-col lg:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-800">
@@ -1335,20 +1234,10 @@ export default function App() {
                         <span className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Home</span>
                         <h2 className="text-2xl font-black text-white truncate">{teamA.name}</h2>
                         <p className="text-xs text-slate-400">Coach: {teamA.coachName || 'Staff'}</p>
-                        {currentSportConfig.hasSets ? (
-                          <span className="inline-block mt-2 text-xs px-3 py-1 rounded-full font-bold bg-blue-500/20 text-blue-400 border border-blue-500/30">Sets Won: {activeMatch.setsA || 0}</span>
-                        ) : (
-                          <span className={`inline-block mt-2 text-xs px-3 py-1 rounded-full font-bold border ${activeMatch.teamAFouls >= 5 ? 'bg-red-500/20 text-red-400 border-red-500' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>Team Fouls: {activeMatch.teamAFouls} {activeMatch.teamAFouls >= 5 ? '• BONUS' : ''}</span>
-                        )}
                       </div>
 
                       <div className="flex flex-col items-center bg-slate-950 px-6 sm:px-8 py-4 rounded-2xl border border-slate-800 shadow-inner w-full lg:w-auto">
                         <span className="text-xs text-amber-400 font-black uppercase mb-1 tracking-wider text-center">{currentSportConfig.name} • {activeMatch.court} • {activeMatch.status}</span>
-                        <button type="button" disabled={activeMatch.status === 'Final'} onClick={() => setActiveMatch((prev) => ({ ...prev, possession: prev.possession === 'A' ? 'B' : 'A' }))} className="my-1.5 px-3 py-1 bg-slate-900 border border-slate-700 hover:border-blue-500 rounded-full text-[11px] font-bold text-slate-300 flex items-center gap-2 cursor-pointer transition shadow disabled:opacity-60">
-                          <ArrowLeftRight className="w-3.5 h-3.5 text-blue-400" />
-                          <span>{currentSportConfig.hasSets ? 'SERVING: ' : 'POSSESSION: '} <strong className="text-amber-400">{activeMatch.possession === 'A' ? teamA.name : teamB.name}</strong></span>
-                        </button>
-
                         <div className="flex items-center gap-6 sm:gap-8 mb-3">
                           <span className="text-5xl sm:text-6xl font-black text-amber-400 tabular-nums">{activeMatch.scoreA}</span>
                           <span className="text-slate-700 font-bold text-3xl">:</span>
@@ -1365,12 +1254,6 @@ export default function App() {
                               </button>
                             )}
                           </div>
-                          {!currentSportConfig.hasSets && (
-                            <div className="flex items-center gap-2 sm:border-l sm:pl-4 border-slate-800">
-                              <span className="text-[10px] text-slate-400 font-bold uppercase">Shot</span>
-                              <span className={`font-mono text-xl font-black tabular-nums ${shotClock <= 5 ? 'text-red-500' : 'text-amber-400'}`}>{shotClock}s</span>
-                            </div>
-                          )}
                         </div>
                       </div>
 
@@ -1378,11 +1261,6 @@ export default function App() {
                         <span className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Away</span>
                         <h2 className="text-2xl font-black text-white truncate">{teamB.name}</h2>
                         <p className="text-xs text-slate-400">Coach: {teamB.coachName || 'Staff'}</p>
-                        {currentSportConfig.hasSets ? (
-                          <span className="inline-block mt-2 text-xs px-3 py-1 rounded-full font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">Sets Won: {activeMatch.setsB || 0}</span>
-                        ) : (
-                          <span className={`inline-block mt-2 text-xs px-3 py-1 rounded-full font-bold border ${activeMatch.teamBFouls >= 5 ? 'bg-red-500/20 text-red-400 border-red-500' : 'bg-slate-800 text-slate-400 border-slate-700'}`}>Team Fouls: {activeMatch.teamBFouls} {activeMatch.teamBFouls >= 5 ? '• BONUS' : ''}</span>
-                        )}
                       </div>
                     </div>
 
@@ -1403,6 +1281,70 @@ export default function App() {
                         )}
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {teamA && teamB && (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {[{ t: teamA, key: 'A' as const, color: 'text-amber-400' }, { t: teamB, key: 'B' as const, color: 'text-cyan-400' }].map(({ t, key, color }) => (
+                      <div key={t.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+                        <div className="bg-slate-800/80 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
+                          <div>
+                            <h3 className={`font-black text-sm ${color}`}>{t.name}</h3>
+                          </div>
+                          <span className="text-xs text-slate-300 font-mono bg-slate-900 px-2 py-0.5 rounded border border-slate-700 whitespace-nowrap">{t.players.filter((p) => activeMatch.stats[String(p.id)]?.isCheckedIn).length} / {t.players.length} Active</span>
+                        </div>
+
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-left text-xs whitespace-nowrap">
+                            <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
+                              <tr>
+                                <th className="p-3">#</th>
+                                <th className="p-3">Player</th>
+                                <th className="p-3 text-center">Status</th>
+                                <th className="p-3 text-center">Lineup</th>
+                                <th className="p-3 text-center">PTS</th>
+                                {!isViewer && <th className="p-3 text-right">Scorer Action</th>}
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-800/60">
+                              {t.players.map((p) => {
+                                const st = activeMatch.stats[String(p.id)] || { points: 0, ft: 0, fg2: 0, fg3: 0, fouls: 0, isCheckedIn: false, isOnCourt: true, isFouledOut: false };
+                                return (
+                                  <tr key={p.id} className={!st.isCheckedIn ? 'opacity-45 bg-slate-950/40' : 'hover:bg-slate-800/30'}>
+                                    <td className={`p-3 font-mono font-bold ${color}`}>#{p.jersey}</td>
+                                    <td className="p-3">
+                                      <button type="button" onClick={() => setSelectedPlayer(p)} className="font-semibold text-white hover:underline cursor-pointer flex items-center gap-1.5">
+                                        {p.name} {p.descriptor && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />}
+                                      </button>
+                                    </td>
+                                    <td className="p-3 text-center">
+                                      {st.isCheckedIn ? <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-bold"><CheckCircle2 className="w-3 h-3" /> Ready</span> : <span className="inline-flex items-center gap-1 text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-bold"><AlertCircle className="w-3 h-3" /> Locked</span>}
+                                    </td>
+                                    <td className="p-3 text-center">
+                                      <button type="button" disabled={isViewer || !st.isCheckedIn || activeMatch.status === 'Final'} onClick={() => togglePlayerOnCourt(p.id)} className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition ${st.isOnCourt ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'} disabled:opacity-50`}>
+                                        {st.isOnCourt ? 'On Court' : 'Bench'}
+                                      </button>
+                                    </td>
+                                    <td className="p-3 text-center font-bold text-white text-sm">{st.points}</td>
+                                    {!isViewer && (
+                                      <td className="p-3 text-right">
+                                        <div className="inline-flex gap-1">
+                                          <button type="button" disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'} onClick={() => handleScore(p.id, key, 1)} className="px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-[10px] font-bold rounded cursor-pointer">+1</button>
+                                          <button type="button" disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'} onClick={() => handleScore(p.id, key, 2)} className="px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-[10px] font-bold rounded cursor-pointer">+2</button>
+                                          <button type="button" disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'} onClick={() => handleScore(p.id, key, 3)} className="px-2 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 text-white text-[10px] font-bold rounded cursor-pointer">+3</button>
+                                          <button type="button" disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'} onClick={() => handleFoul(p.id, key)} className="px-2 py-1 bg-red-900/60 hover:bg-red-800 disabled:opacity-30 text-red-200 text-[10px] font-bold rounded cursor-pointer">FOUL</button>
+                                        </div>
+                                      </td>
+                                    )}
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </>
@@ -1479,6 +1421,79 @@ export default function App() {
       <GameSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={gameSettings} onSaveSettings={handleSaveSettings} />
       {currentUser && <AccountManagerModal isOpen={isAccountModalOpen} onClose={() => setIsAccountModalOpen(false)} currentUser={currentUser} onUserUpdated={(updated) => setCurrentUser(updated)} />}
       <LeagueBrandingModal isOpen={isBrandingModalOpen} onClose={() => setIsBrandingModalOpen(false)} sessionId={activeSession.id} currentBranding={leagueBranding} onSaveBranding={(updated) => setLeagueBranding(updated)} />
+
+      {/* Tier Upgrade / PayMongo Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 print:hidden">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 text-white shadow-2xl">
+            <div className="text-center mb-6">
+              <h3 className="text-2xl font-bold text-amber-400">Match Limit Reached! 🚨</h3>
+              <p className="text-slate-400 text-sm mt-1">
+                You have reached the maximum allowed matches for your current plan. Choose a tier to unlock instant access and keep your tournament running.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              {/* Basic Tier */}
+              <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 flex flex-col justify-between">
+                <div>
+                  <h4 className="font-bold text-lg text-slate-200">Basic</h4>
+                  <div className="text-2xl font-extrabold text-white mt-1">₱199</div>
+                  <p className="text-xs text-slate-400 mt-2">Up to 10 matches. Perfect for single-day local games.</p>
+                </div>
+                <button 
+                  onClick={() => handleSelectTier('basic')}
+                  className="mt-4 w-full bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 rounded-xl text-sm transition cursor-pointer"
+                >
+                  Choose Basic
+                </button>
+              </div>
+
+              {/* Essential Tier */}
+              <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 flex flex-col justify-between">
+                <div>
+                  <h4 className="font-bold text-lg text-blue-400">Essential</h4>
+                  <div className="text-2xl font-extrabold text-white mt-1">₱299</div>
+                  <p className="text-xs text-slate-400 mt-2">Up to 30 matches. Great for weekend sportsfests.</p>
+                </div>
+                <button 
+                  onClick={() => handleSelectTier('essential')}
+                  className="mt-4 w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-xl text-sm transition cursor-pointer"
+                >
+                  Choose Essential
+                </button>
+              </div>
+
+              {/* Pro Tier */}
+              <div className="bg-gradient-to-b from-amber-500/20 to-slate-800/60 border border-amber-500/50 rounded-xl p-4 flex flex-col justify-between relative">
+                <span className="absolute -top-3 right-4 bg-amber-500 text-slate-950 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  Best Value
+                </span>
+                <div>
+                  <h4 className="font-bold text-lg text-amber-400">Pro</h4>
+                  <div className="text-2xl font-extrabold text-white mt-1">₱399</div>
+                  <p className="text-xs text-slate-400 mt-2">Unlimited matches, cloud sync, and live TV projection mode.</p>
+                </div>
+                <button 
+                  onClick={() => handleSelectTier('pro')}
+                  className="mt-4 w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded-lg text-sm transition shadow-lg shadow-amber-500/20 cursor-pointer"
+                >
+                  Choose Pro
+                </button>
+              </div>
+            </div>
+
+            <div className="text-center">
+              <button 
+                onClick={() => setShowUpgradeModal(false)}
+                className="text-xs text-slate-400 hover:text-white underline transition cursor-pointer"
+              >
+                Cancel / Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
