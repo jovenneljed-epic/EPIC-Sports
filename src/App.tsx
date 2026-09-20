@@ -334,6 +334,43 @@ export default function App() {
   const [isSpectatorMode, setIsSpectatorMode] = useState<boolean>(false);
   const [selectedSportTab, setSelectedSportTab] = useState<SportType>('basketball');
 
+  const [activeSession, _setActiveSession] = useState<TournamentSession>(DEFAULT_SESSION);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [scheduledMatches, setScheduledMatches] = useState<ScheduledMatch[]>([]);
+  const [gameSettings, setGameSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
+
+  // Define activeMatch state early so it's initialized before effects & handlers
+  const [activeMatch, setActiveMatch] = useState<Match>(() => {
+    const defaultState: Match = {
+      id: `m_${Date.now()}`,
+      sessionId: DEFAULT_SESSION.id,
+      sportType: DEFAULT_SESSION.sportType,
+      teamAId: '',
+      teamBId: '',
+      scoreA: 0,
+      scoreB: 0,
+      quarter: 'Q1',
+      court: DEFAULT_SETTINGS.courtName,
+      status: 'Live',
+      teamAFouls: 0,
+      teamBFouls: 0,
+      possession: 'A',
+      setsA: 0,
+      setsB: 0,
+      currentSet: 1,
+      history: [],
+      logs: [],
+      stats: {},
+    };
+    return defaultState;
+  });
+
+  // Clock
+  const [gameSeconds, setGameSeconds] = useState(DEFAULT_SETTINGS.quarterMinutes * 60);
+  const [shotClock, setShotClock] = useState(DEFAULT_SETTINGS.shotClockSeconds);
+  const [isClockRunning, setIsClockRunning] = useState(false);
+  const timerRef = useRef<number | null>(null);
+
   // Guarded tab changer to prevent accidental data loss during live matches
   const handleTabChange = (newTab: NavTab) => {
     if (activeTab === 'desk' && activeMatch.status === 'Live') {
@@ -370,42 +407,6 @@ export default function App() {
     sponsorTagline: 'Powered by Kezjed Solutions',
     accentColor: 'amber',
   });
-
-  const [activeSession, _setActiveSession] = useState<TournamentSession>(DEFAULT_SESSION);
-  const [teams, setTeams] = useState<Team[]>([]);
-  const [scheduledMatches, setScheduledMatches] = useState<ScheduledMatch[]>([]);
-  const [gameSettings, setGameSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
-
-  const [activeMatch, setActiveMatch] = useState<Match>(() => {
-    const defaultState: Match = {
-      id: `m_${Date.now()}`,
-      sessionId: DEFAULT_SESSION.id,
-      sportType: DEFAULT_SESSION.sportType,
-      teamAId: '',
-      teamBId: '',
-      scoreA: 0,
-      scoreB: 0,
-      quarter: 'Q1',
-      court: DEFAULT_SETTINGS.courtName,
-      status: 'Live',
-      teamAFouls: 0,
-      teamBFouls: 0,
-      possession: 'A',
-      setsA: 0,
-      setsB: 0,
-      currentSet: 1,
-      history: [],
-      logs: [],
-      stats: {},
-    };
-    return defaultState;
-  });
-
-  // Clock
-  const [gameSeconds, setGameSeconds] = useState(DEFAULT_SETTINGS.quarterMinutes * 60);
-  const [shotClock, setShotClock] = useState(DEFAULT_SETTINGS.shotClockSeconds);
-  const [isClockRunning, setIsClockRunning] = useState(false);
-  const timerRef = useRef<number | null>(null);
 
   // Cloud Sync Data Fetcher from Supabase & Restore Live Match State
   useEffect(() => {
@@ -1314,7 +1315,7 @@ export default function App() {
                       <div className="flex items-center gap-2">
                         <button type="button" onClick={() => {
                           setActiveMatch((prev) => ({ ...prev, sessionId: activeSession.id, sportType: m.sportType, teamAId: m.teamAId, teamBId: m.teamBId, scoreA: 0, scoreB: 0, setsA: 0, setsB: 0, currentSet: 1, history: [], logs: [], quarter: 'Q1', status: 'Live', teamAFouls: 0, teamBFouls: 0, stats: {} }));
-                          setActiveTab('desk');
+                          handleTabChange('desk');
                         }} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-2 rounded-xl text-xs cursor-pointer shadow whitespace-nowrap">Load to Desk</button>
                         {isCommissioner && <button type="button" onClick={async () => {
                           setScheduledMatches((prev) => prev.filter((item) => item.id !== m.id));
