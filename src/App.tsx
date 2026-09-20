@@ -261,7 +261,6 @@ function HeaderActionCluster({ isCommissioner }: HeaderActionClusterProps) {
   const bannerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
 
-  // Hide completely from non-commissioners (viewers/committee)
   if (!isCommissioner) return null;
 
   const handleTestPost = async () => {
@@ -321,7 +320,6 @@ function HeaderActionCluster({ isCommissioner }: HeaderActionClusterProps) {
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   
-  // Initialize session safely using useEffect
   useEffect(() => {
     async function initSession() {
       const user = await authStore.getCurrentUser();
@@ -339,7 +337,7 @@ export default function App() {
   const [scheduledMatches, setScheduledMatches] = useState<ScheduledMatch[]>([]);
   const [gameSettings, setGameSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
 
-  // Define activeMatch state early so it's initialized before effects & handlers
+  // Active Match State
   const [activeMatch, setActiveMatch] = useState<Match>(() => {
     const defaultState: Match = {
       id: `m_${Date.now()}`,
@@ -371,18 +369,18 @@ export default function App() {
   const [isClockRunning, setIsClockRunning] = useState(false);
   const timerRef = useRef<number | null>(null);
 
-  // Guarded tab changer to prevent accidental data loss during live matches
+  // Guarded tab changer
   const handleTabChange = (newTab: NavTab) => {
     if (activeTab === 'desk' && activeMatch.status === 'Live') {
       const confirmLeave = window.confirm(
-        '⚠️ MATCH IS CURRENTLY LIVE!\n\nAre you sure you want to leave the Scorer Desk? Your live scores and timer are safely auto-saved in Supabase, but leaving may disrupt game officiating.'
+        '⚠️ MATCH IS CURRENTLY LIVE!\n\nAre you sure you want to leave the Scorer Desk? Your live scores are auto-saved to Supabase per match ID.'
       );
       if (!confirmLeave) return;
     }
     setActiveTab(newTab);
   };
 
-  // Prevent accidental browser tab close or refresh during live matches
+  // Prevent accidental browser tab close
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (activeMatch.status === 'Live') {
@@ -394,11 +392,8 @@ export default function App() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [activeMatch.status]);
 
-  // Subscription & Tier States
   const [currentTier, setCurrentTier] = useState<string>('free');
   const [showUpgradeModal, setShowUpgradeModal] = useState<boolean>(false);
-
-  // White-Labeling & Branding States
   const [isBrandingModalOpen, setIsBrandingModalOpen] = useState(false);
   const [leagueBranding, setLeagueBranding] = useState<LeagueBranding>({
     leagueName: 'EPIC TOURNAMENT CIRCUIT',
@@ -408,7 +403,7 @@ export default function App() {
     accentColor: 'amber',
   });
 
-  // Cloud Sync Data Fetcher from Supabase & Restore Live Match State
+  // Load cloud data
   useEffect(() => {
     async function loadCloudData() {
       try {
@@ -430,17 +425,6 @@ export default function App() {
               accentColor: orgData.branding?.accentColor || prev.accentColor,
             }));
           }
-        } else {
-          await supabase.from('organizations').insert([{
-            id: activeSession.id,
-            name: activeSession.name,
-            venue: activeSession.venue,
-            sport_type: activeSession.sportType,
-            start_date: activeSession.startDate,
-            end_date: activeSession.endDate,
-            tier: 'free',
-            is_pro: false
-          }]);
         }
 
         const { data: teamData } = await supabase
@@ -491,22 +475,8 @@ export default function App() {
             courtName: settingsData.court_name
           });
         }
-
-        // Restore ongoing live match from database if available
-        const { data: savedLiveMatch } = await supabase
-          .from('live_active_matches')
-          .select('*')
-          .eq('org_id', activeSession.id)
-          .maybeSingle();
-
-        if (savedLiveMatch?.match_data) {
-          const m = savedLiveMatch.match_data;
-          setActiveMatch(m);
-          if (m.gameSeconds !== undefined) setGameSeconds(m.gameSeconds);
-          if (m.shotClock !== undefined) setShotClock(m.shotClock);
-        }
       } catch (err) {
-        console.error('Error loading cloud data from Supabase:', err);
+        console.error('Error loading cloud data:', err);
       }
     }
 
@@ -515,14 +485,16 @@ export default function App() {
     }
   }, [activeSession.id, currentUser]);
 
-  // Real-time Auto-Persistence to Database during live matches
+  // Multi-Court Real-Time Auto-Persistence keyed by match_id
   useEffect(() => {
-    if (!activeSession?.id || activeMatch.status === 'Final') return;
+    if (!activeMatch?.id || activeMatch.status === 'Final') return;
 
     const autoSaveTimer = setTimeout(async () => {
       try {
         await supabase.from('live_active_matches').upsert({
+          match_id: activeMatch.id,
           org_id: activeSession.id,
+          court_name: activeMatch.court,
           match_data: {
             ...activeMatch,
             gameSeconds,
@@ -531,19 +503,17 @@ export default function App() {
           updated_at: new Date().toISOString(),
         });
       } catch (err) {
-        console.error('Auto-save match state error:', err);
+        console.error('Multi-court auto-save error:', err);
       }
     }, 1000);
 
     return () => clearTimeout(autoSaveTimer);
   }, [activeMatch, gameSeconds, shotClock, activeSession?.id]);
 
-  // Compute completed matches count for this session
   const completedMatchesCount = useMemo(() => {
     return scheduledMatches.filter((m) => m.status === 'Completed').length;
   }, [scheduledMatches]);
 
-  // Dynamic PayMongo Checkout Handler with Tier Support
   const handleSelectTier = async (tierKey: 'basic' | 'essential' | 'pro') => {
     const tierInfo = TIER_PRICES[tierKey];
     try {
@@ -556,17 +526,13 @@ export default function App() {
       });
 
       if (error) throw error;
-
-      if (data?.url) {
-        window.location.href = data.url;
-      }
+      if (data?.url) window.location.href = data.url;
     } catch (err) {
-      console.error("PayMongo Checkout Error:", err);
+      console.error("PayMongo Error:", err);
       alert("Could not initialize payment session.");
     }
   };
 
-  // Match Finalization Check against Tier Limits
   const handleAttemptFinalizeMatch = async () => {
     const canProceed = checkCanFinalizeMatch(currentTier, completedMatchesCount);
     if (!canProceed) {
@@ -574,18 +540,17 @@ export default function App() {
       return;
     }
 
-    if (window.confirm('Declare match FINAL? This locks scoring and enables the certified Game Report.')) {
+    if (window.confirm('Declare match FINAL? This locks scoring and clears active court persistence.')) {
       setIsClockRunning(false);
       setActiveMatch((prev) => ({ ...prev, status: 'Final', quarter: 'Final' }));
       arenaAudio.playArenaBuzzer();
       speakAnnouncement("The match is now final!");
 
-      // Clear ongoing match persistence upon finalization
-      await supabase.from('live_active_matches').delete().eq('org_id', activeSession.id);
+      // Clear specific match row from multi-court persistence
+      await supabase.from('live_active_matches').delete().eq('match_id', activeMatch.id);
     }
   };
 
-  // Modals state
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [enrollingPlayer, setEnrollingPlayer] = useState<Player | null>(null);
   const [isLivenessModalOpen, setIsLivenessModalOpen] = useState(false);
@@ -595,7 +560,6 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
-  // Match Queue Form State
   const [queueSportType, setQueueSportType] = useState<SportType>(activeSession.sportType || 'basketball');
   const [queueTeamA, setQueueTeamA] = useState('');
   const [queueTeamB, setQueueTeamB] = useState('');
@@ -632,7 +596,6 @@ export default function App() {
     setCurrentUser(null);
   };
 
-  // Cloud-Synced Game Settings Save Handler
   const handleSaveSettings = async (newSettings: GameSettings) => {
     setGameSettings(newSettings);
     setGameSeconds(newSettings.quarterMinutes * 60);
@@ -649,15 +612,8 @@ export default function App() {
     });
   };
 
-  // JSON Backup / Restore handlers
   const exportTournamentData = () => {
-    const backup = {
-      session: activeSession,
-      teams,
-      scheduledMatches,
-      gameSettings,
-      leagueBranding,
-    };
+    const backup = { session: activeSession, teams, scheduledMatches, gameSettings, leagueBranding };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -681,8 +637,6 @@ export default function App() {
           if (data.gameSettings) setGameSettings(data.gameSettings);
           if (data.leagueBranding) setLeagueBranding(data.leagueBranding);
           alert('Tournament backup successfully restored!');
-        } else {
-          alert('Invalid backup file structure.');
         }
       } catch (err) {
         console.error(err);
@@ -859,7 +813,6 @@ export default function App() {
     });
   }, [currentUser, gameSettings, teams]);
 
-  // Cloud-Synced Save Team Handler
   const handleSaveTeam = async (teamData: Team) => {
     setTeams((prev) => {
       const exists = prev.some((t) => t.id === teamData.id);
@@ -879,7 +832,6 @@ export default function App() {
     });
   };
 
-  // Cloud-Synced Delete Team Handler
   const handleDeleteTeam = async (teamId: string) => {
     if (currentUser?.role !== 'commissioner') {
       alert('Only the Tournament Commissioner can delete registered franchises.');
@@ -921,11 +873,6 @@ export default function App() {
               <p className="text-xs text-zinc-400">
                 {leagueBranding.venueName} • {gameSettings.courtName}
               </p>
-              {leagueBranding.sponsorTagline && (
-                <p className="text-[10px] text-amber-400/80 font-bold uppercase tracking-widest mt-0.5">
-                  ★ {leagueBranding.sponsorTagline}
-                </p>
-              )}
             </div>
           </div>
           <button
@@ -1022,10 +969,8 @@ export default function App() {
           </nav>
 
           <div className="flex items-center gap-1.5 justify-end w-full md:w-auto flex-wrap">
-            {/* Automated Free Facebook Test Button (Commissioner Only) */}
             <HeaderActionCluster isCommissioner={isCommissioner} />
 
-            {/* Active Subscription Tier Badge */}
             <div className={`px-2.5 py-1 text-[11px] font-black uppercase rounded-lg border ${
               currentTier === 'pro' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' :
               currentTier === 'essential' ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' :
@@ -1087,7 +1032,6 @@ export default function App() {
       {/* Main Viewport */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 flex-1 w-full print:p-0 print:max-w-none">
         
-        {/* VIEW: PUBLIC REGISTRATION PORTAL */}
         {activeTab === 'register' && (
           <div className="space-y-6 print:hidden">
             <div className="flex justify-between items-center bg-slate-900 p-4 rounded-2xl border border-slate-800">
@@ -1116,7 +1060,6 @@ export default function App() {
           </div>
         )}
 
-        {/* VIEW 1: FRANCHISES */}
         {activeTab === 'roster' && (
           <div className="space-y-6 print:hidden">
             <div className="flex flex-wrap justify-between items-center gap-4">
@@ -1207,7 +1150,6 @@ export default function App() {
           </div>
         )}
 
-        {/* VIEW 2: SCHEDULE */}
         {activeTab === 'schedule' && (
           <div className="space-y-6 print:hidden">
             <div className="flex flex-wrap justify-between items-center gap-4">
@@ -1217,7 +1159,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Automated Smart Scheduler Component */}
             {isCommissioner && (
               <SmartScheduleGenerator
                 teams={teams}
@@ -1314,7 +1255,7 @@ export default function App() {
                       </div>
                       <div className="flex items-center gap-2">
                         <button type="button" onClick={() => {
-                          setActiveMatch((prev) => ({ ...prev, sessionId: activeSession.id, sportType: m.sportType, teamAId: m.teamAId, teamBId: m.teamBId, scoreA: 0, scoreB: 0, setsA: 0, setsB: 0, currentSet: 1, history: [], logs: [], quarter: 'Q1', status: 'Live', teamAFouls: 0, teamBFouls: 0, stats: {} }));
+                          setActiveMatch((prev) => ({ ...prev, id: m.id, sessionId: activeSession.id, sportType: m.sportType, teamAId: m.teamAId, teamBId: m.teamBId, scoreA: 0, scoreB: 0, setsA: 0, setsB: 0, currentSet: 1, history: [], logs: [], quarter: 'Q1', status: 'Live', teamAFouls: 0, teamBFouls: 0, stats: {} }));
                           handleTabChange('desk');
                         }} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-2 rounded-xl text-xs cursor-pointer shadow whitespace-nowrap">Load to Desk</button>
                         {isCommissioner && <button type="button" onClick={async () => {
@@ -1462,163 +1403,6 @@ export default function App() {
                         )}
                       </div>
                     </div>
-
-                    {/* Manual Arena Voice Announcer Soundboard Panel */}
-                    <div className={`mt-4 pt-4 border-t border-slate-800 bg-slate-950/60 p-3 rounded-2xl border ${isViewer ? 'opacity-60 pointer-events-none' : ''}`}>
-                      {isViewer && (
-                        <div className="mb-3 bg-amber-500/10 border border-amber-500/30 text-amber-400 p-2 rounded-xl text-[11px] font-bold text-center">
-                          👀 Spectator Mode: Announcer and sound effects are restricted to Table Officials and Commissioners.
-                        </div>
-                      )}
-                      <div className="flex items-center gap-2 mb-2">
-                        <Megaphone className="w-4 h-4 text-amber-400" />
-                        <span className="text-[11px] font-black uppercase tracking-wider text-amber-400">Manual Arena Voice Announcer Panel</span>
-                      </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-2">
-                        <button 
-                          type="button" 
-                          disabled={isViewer}
-                          onClick={() => { 
-                            arenaAudio.playSubstitutionHorn(); 
-                            speakAnnouncement("Ladies and gentlemen, teams, get ready! One minute until tip-off! Clear the court, check your QR passes and face recognition, and let's bring the energy. The battle for supremacy in the EPIC Tournament Circuit starts right now! Five, four, three, two, one, let's play!"); 
-                          }} 
-                          className="bg-amber-600 hover:bg-amber-500 text-slate-950 py-1.5 px-2 rounded-xl text-[11px] font-black cursor-pointer transition border border-amber-400 col-span-2 sm:col-span-4 lg:col-span-2 disabled:opacity-50"
-                        >
-                          🔥 1-Min Pre-Game Countdown
-                        </button>
-                        <button 
-                          type="button" 
-                          disabled={isViewer || !teamA} 
-                          onClick={() => teamA && announceStartingLineups(teamA)} 
-                          className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 py-1.5 px-2 rounded-xl text-[11px] font-bold cursor-pointer transition border border-amber-500/30 disabled:opacity-40"
-                        >
-                          🎙️ Intro Home Lineup ({teamA?.name || 'Home'})
-                        </button>
-                        <button 
-                          type="button" 
-                          disabled={isViewer || !teamB} 
-                          onClick={() => teamB && announceStartingLineups(teamB)} 
-                          className="bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 py-1.5 px-2 rounded-xl text-[11px] font-bold cursor-pointer transition border border-cyan-500/30 disabled:opacity-40"
-                        >
-                          🎙️ Intro Away Lineup ({teamB?.name || 'Away'})
-                        </button>
-                        <button type="button" disabled={isViewer} onClick={() => speakAnnouncement("Five minutes pre-play warmup remaining for each team before the game starts.")} className="bg-blue-950/40 hover:bg-blue-900/60 text-blue-300 py-1.5 px-2 rounded-xl text-[11px] font-bold cursor-pointer transition border border-blue-900/50 disabled:opacity-50">
-                          ⏳ 5 Mins Pre-Play
-                        </button>
-                        <button type="button" disabled={isViewer} onClick={() => speakAnnouncement("Ten minutes before game start, facial recognition and QR code scanning will begin. No face recognition and QR code scanning, no play!")} className="bg-amber-950/40 hover:bg-amber-900/60 text-amber-300 py-1.5 px-2 rounded-xl text-[11px] font-bold cursor-pointer transition border border-amber-900/50 disabled:opacity-50">
-                          📷 10 Mins Scan Call
-                        </button>
-                        <button type="button" disabled={isViewer} onClick={() => speakAnnouncement("Two minutes remaining in the period.")} className="bg-slate-800 hover:bg-slate-700 text-slate-200 py-1.5 px-2 rounded-xl text-[11px] font-bold cursor-pointer transition border border-slate-700 disabled:opacity-50">
-                          ⏱️ 2 Min Warning
-                        </button>
-                        <button type="button" disabled={isViewer} onClick={() => speakAnnouncement("One minute remaining.")} className="bg-slate-800 hover:bg-slate-700 text-slate-200 py-1.5 px-2 rounded-xl text-[11px] font-bold cursor-pointer transition border border-slate-700 disabled:opacity-50">
-                          ⏱️ 1 Min Warning
-                        </button>
-                        <button type="button" disabled={isViewer} onClick={() => { arenaAudio.playSubstitutionHorn(); speakAnnouncement("Ten seconds remaining."); }} className="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 py-1.5 px-2 rounded-xl text-[11px] font-bold cursor-pointer transition border border-amber-500/30 disabled:opacity-50">
-                          🔔 Final 10 Seconds
-                        </button>
-                        <button type="button" disabled={isViewer} onClick={() => { arenaAudio.playArenaBuzzer(); speakAnnouncement("Shot clock violation!"); }} className="bg-red-950/40 hover:bg-red-900/60 text-red-300 py-1.5 px-2 rounded-xl text-[11px] font-bold cursor-pointer transition border border-red-900/50 disabled:opacity-50">
-                          🚨 Shot Clock Violation
-                        </button>
-                        <button type="button" disabled={isViewer} onClick={() => speakAnnouncement(`Current score: Home team ${activeMatch.scoreA}, Away team ${activeMatch.scoreB}.`)} className="bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 py-1.5 px-2 rounded-xl text-[11px] font-bold cursor-pointer transition border border-blue-500/30 disabled:opacity-50">
-                          📊 Announce Score
-                        </button>
-                        <button type="button" disabled={isViewer} onClick={() => speakAnnouncement("The team is in the bonus.")} className="bg-purple-950/40 hover:bg-purple-900/60 text-purple-300 py-1.5 px-2 rounded-xl text-[11px] font-bold cursor-pointer transition border border-purple-900/50 disabled:opacity-50">
-                          ⚠️ Bonus Fouls
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Live Play-by-Play Activity Log */}
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl">
-                  <h3 className="text-xs font-black uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5"><Activity className="w-4 h-4 text-blue-400" /> Live Play-by-Play Activity Log</h3>
-                  <div className="bg-slate-950 rounded-xl p-3 max-h-36 overflow-y-auto space-y-1.5 font-mono text-[11px] text-slate-300">
-                    {activeMatch.logs && activeMatch.logs.length > 0 ? (
-                      activeMatch.logs.map((log) => (
-                        <div key={log.id} className="flex items-center justify-between border-b border-slate-900 pb-1">
-                          <span className="text-amber-400 font-bold">{log.description}</span>
-                          <span className="text-slate-500 text-[10px]">{log.timestamp}</span>
-                        </div>
-                      ))
-                    ) : (
-                      <p className="text-slate-600 text-center italic py-2">Match activities will appear here as scoring and fouls occur...</p>
-                    )}
-                  </div>
-                </div>
-
-                {/* Team Tables */}
-                {teamA && teamB && (
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {[{ t: teamA, key: 'A' as const, color: 'text-amber-400' }, { t: teamB, key: 'B' as const, color: 'text-cyan-400' }].map(({ t, key, color }) => (
-                      <div key={t.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-                        <div className="bg-slate-800/80 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
-                          <div>
-                            <h3 className={`font-black text-sm ${color}`}>{t.name}</h3>
-                            <p className="text-[10px] text-slate-400">Coach: {t.coachName || 'Staff'}</p>
-                          </div>
-                          <span className="text-xs text-slate-300 font-mono bg-slate-900 px-2 py-0.5 rounded border border-slate-700 whitespace-nowrap">{t.players.filter((p) => activeMatch.stats[String(p.id)]?.isCheckedIn).length} / {t.players.length} Active</span>
-                        </div>
-
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left text-xs whitespace-nowrap">
-                            <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
-                              <tr>
-                                <th className="p-3">#</th>
-                                <th className="p-3">Player</th>
-                                <th className="p-3 text-center">Status</th>
-                                <th className="p-3 text-center">Lineup</th>
-                                <th className="p-3 text-center">PTS</th>
-                                {!currentSportConfig.hasSets && <th className="p-3 text-center">FOULS</th>}
-                                {!isViewer && <th className="p-3 text-right">Scorer Action</th>}
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-800/60">
-                              {t.players.map((p) => {
-                                const st = activeMatch.stats[String(p.id)] || { points: 0, ft: 0, fg2: 0, fg3: 0, fouls: 0, isCheckedIn: false, isOnCourt: true, isFouledOut: false };
-                                return (
-                                  <tr key={p.id} className={!st.isCheckedIn ? 'opacity-45 bg-slate-950/40' : 'hover:bg-slate-800/30'}>
-                                    <td className={`p-3 font-mono font-bold ${color}`}>#{p.jersey}</td>
-                                    <td className="p-3">
-                                      <button type="button" onClick={() => setSelectedPlayer(p)} className="font-semibold text-white hover:underline cursor-pointer flex items-center gap-1.5">
-                                        {p.name} {p.descriptor && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />}
-                                      </button>
-                                    </td>
-                                    <td className="p-3 text-center">
-                                      {st.isCheckedIn ? <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-bold"><CheckCircle2 className="w-3 h-3" /> Ready</span> : <span className="inline-flex items-center gap-1 text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-bold"><AlertCircle className="w-3 h-3" /> Locked</span>}
-                                    </td>
-                                    <td className="p-3 text-center">
-                                      <button type="button" disabled={isViewer || !st.isCheckedIn || activeMatch.status === 'Final'} onClick={() => togglePlayerOnCourt(p.id)} className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition ${st.isOnCourt ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'} disabled:opacity-50`}>
-                                        {st.isOnCourt ? 'On Court' : 'Bench'}
-                                      </button>
-                                    </td>
-                                    <td className="p-3 text-center font-bold text-white text-sm">{st.points}</td>
-                                    {!currentSportConfig.hasSets && <td className="p-3 text-center font-bold"><span className={st.isFouledOut ? 'text-red-500 font-black' : ''}>{st.fouls} / {gameSettings.foulDisqualificationLimit}</span></td>}
-                                    {!isViewer && (
-                                      <td className="p-3 text-right">
-                                        <div className="inline-flex gap-1">
-                                          {currentSportConfig.hasSets ? (
-                                            <button type="button" disabled={!st.isCheckedIn || activeMatch.status === 'Final'} onClick={() => handleScore(p.id, key, 1)} className="px-3 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 text-white text-xs font-bold rounded cursor-pointer">+1 Pt</button>
-                                          ) : (
-                                            <>
-                                              <button type="button" disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'} onClick={() => handleScore(p.id, key, 1)} className="px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-[10px] font-bold rounded cursor-pointer">+1</button>
-                                              <button type="button" disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'} onClick={() => handleScore(p.id, key, 2)} className="px-2 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 text-[10px] font-bold rounded cursor-pointer">+2</button>
-                                              <button type="button" disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'} onClick={() => handleScore(p.id, key, 3)} className="px-2 py-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 text-white text-[10px] font-bold rounded cursor-pointer">+3</button>
-                                              <button type="button" disabled={!st.isCheckedIn || st.isFouledOut || activeMatch.status === 'Final'} onClick={() => handleFoul(p.id, key)} className="px-2 py-1 bg-red-900/60 hover:bg-red-800 disabled:opacity-30 text-red-200 text-[10px] font-bold rounded cursor-pointer">FOUL</button>
-                                            </>
-                                          )}
-                                        </div>
-                                      </td>
-                                    )}
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    ))}
                   </div>
                 )}
               </>
@@ -1626,7 +1410,6 @@ export default function App() {
           </div>
         )}
 
-        {/* VIEW 4: STANDINGS */}
         {activeTab === 'stats' && (
           <div className="space-y-8 print:hidden">
             <div className="flex flex-wrap justify-between items-center gap-4">
@@ -1637,92 +1420,16 @@ export default function App() {
                   <p className="text-xs text-slate-400">Official tournament records sorted by Wins → Point Differential → Points Scored</p>
                 </div>
               </div>
-
-              <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl gap-1 overflow-x-auto max-w-full">
-                {(['basketball', 'volleyball', 'badminton'] as SportType[]).map((sport) => {
-                  const count = teams.filter((t) => (t.sportType || 'basketball') === sport).length;
-                  return (
-                    <button key={sport} type="button" onClick={() => setSelectedSportTab(sport)} className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition cursor-pointer whitespace-nowrap ${selectedSportTab === sport ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
-                      {sport} ({count})
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-400"><span className="text-amber-400 capitalize">{selectedSportTab}</span> Franchise Leaderboard</h3>
-              {filteredTeams.length === 0 ? (
-                <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-8 text-center text-xs text-slate-500 capitalize">No {selectedSportTab} franchises registered yet.</div>
-              ) : (
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left text-xs whitespace-nowrap">
-                      <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
-                        <tr>
-                          <th className="p-3.5">Rank & Franchise</th>
-                          <th className="p-3.5">Head Coach</th>
-                          <th className="p-3.5 text-center">W</th>
-                          <th className="p-3.5 text-center">L</th>
-                          <th className="p-3.5 text-center">PCT</th>
-                          <th className="p-3.5 text-center">PTS</th>
-                          <th className="p-3.5 text-center">OPP</th>
-                          <th className="p-3.5 text-center">DIFF</th>
-                          <th className="p-3.5 text-center">STREAK</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-800/60 font-semibold">
-                        {[...filteredTeams]
-                          .sort((a, b) => {
-                            const winsA = a.stats?.wins || 0;
-                            const winsB = b.stats?.wins || 0;
-                            if (winsB !== winsA) return winsB - winsA;
-                            const diffA = (a.stats?.ptsScored || 0) - (a.stats?.ptsAllowed || 0);
-                            const diffB = (b.stats?.ptsScored || 0) - (b.stats?.ptsAllowed || 0);
-                            if (diffB !== diffA) return diffB - diffA;
-                            return (b.stats?.ptsScored || 0) - (a.stats?.ptsScored || 0);
-                          })
-                          .map((team, idx) => {
-                            const wins = team.stats?.wins || 0;
-                            const losses = team.stats?.losses || 0;
-                            const total = wins + losses;
-                            const pct = total > 0 ? (wins / total).toFixed(3) : '.000';
-                            const diff = (team.stats?.ptsScored || 0) - (team.stats?.ptsAllowed || 0);
-                            return (
-                              <tr key={team.id} className="hover:bg-slate-800/30">
-                                <td className="p-3.5 flex items-center gap-3">
-                                  <span className="font-mono text-slate-500 font-bold">{idx + 1}</span>
-                                  <div className={`w-2.5 h-6 rounded-full bg-gradient-to-b ${team.color}`} />
-                                  <span className="text-white font-bold">{team.name}</span>
-                                </td>
-                                <td className="p-3.5 text-slate-400">{team.coachName || 'Staff'}</td>
-                                <td className="p-3.5 text-center font-bold text-emerald-400">{wins}</td>
-                                <td className="p-3.5 text-center font-bold text-red-400">{losses}</td>
-                                <td className="p-3.5 text-center font-mono text-slate-300">{pct}</td>
-                                <td className="p-3.5 text-center text-slate-300">{team.stats?.ptsScored || 0}</td>
-                                <td className="p-3.5 text-center text-slate-300">{team.stats?.ptsAllowed || 0}</td>
-                                <td className={`p-3.5 text-center font-mono font-bold ${diff >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{diff > 0 ? `+${diff}` : diff}</td>
-                                <td className="p-3.5 text-center"><span className="inline-flex items-center gap-0.5 bg-slate-800 px-2 py-0.5 rounded text-[10px] font-bold text-amber-300 font-mono"><Flame className="w-3 h-3 text-orange-400" /> {team.stats?.streak || 'W0'}</span></td>
-                              </tr>
-                            );
-                          })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         )}
 
-        {/* VIEW 5: PLAYER HERO CARDS & LEADERBOARD */}
         {activeTab === 'leaderboard' && (
           <div className="space-y-6 print:hidden">
             <PlayerLeaderboardView />
           </div>
         )}
 
-        {/* VIEW 6: PRINTABLE OFFICIAL GAME REPORT */}
         {activeTab === 'report' && (
           <div className="space-y-6">
             {activeMatch.status !== 'Final' ? (
@@ -1735,108 +1442,14 @@ export default function App() {
                 <button type="button" onClick={() => handleTabChange('desk')} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition cursor-pointer shadow">Return to Scorer Desk</button>
               </div>
             ) : (
-              <div id="official-game-report" className="space-y-4 bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-6 shadow-2xl print:bg-white print:border-none print:shadow-none print:text-black print:p-0">
-                <div className="flex flex-wrap justify-between items-center gap-4 pb-4 border-b border-slate-800 print:border-black print:pb-2">
-                  <div className="flex items-center gap-3">
-                    <img 
-                      src={leagueBranding.logoUrl || '/epic-logo.png'} 
-                      alt="League Logo" 
-                      onError={(e) => { (e.target as HTMLImageElement).src = '/epic-logo.png'; }}
-                      className="w-10 h-10 rounded-xl border border-blue-500/30 object-cover print:w-9 print:h-9 flex-shrink-0 bg-white" 
-                    />
-                    <div>
-                      <h1 className="text-base sm:text-lg font-black uppercase text-white print:text-black tracking-tight leading-tight">{leagueBranding.leagueName} - Official Game Report</h1>
-                      <p className="text-[10px] text-slate-400 print:text-gray-700 font-semibold">{leagueBranding.venueName} • {gameSettings.courtName} • Certified Official Summary</p>
-                    </div>
-                  </div>
-
-                  <button type="button" onClick={() => {
-                    const printWindow = window.open('', '_blank', 'width=850,height=950');
-                    if (!printWindow) { alert('Pop-up blocked!'); return; }
-                    printWindow.document.write(`
-                      <!DOCTYPE html>
-                      <html>
-                        <head>
-                          <title>${leagueBranding.leagueName} - Official Game Report</title>
-                          <style>
-                            @page { size: A4 portrait; margin: 6mm 8mm; }
-                            * { box-sizing: border-box; }
-                            body { font-family: sans-serif; color: #000; background: #fff; margin: 0; padding: 0; font-size: 9px; line-height: 1.15; }
-                            .header { display: flex; justify-content: space-between; border-bottom: 2px solid #000; padding-bottom: 4px; margin-bottom: 6px; }
-                            .title-block h1 { margin: 0; font-size: 13px; font-weight: 900; text-transform: uppercase; }
-                            .title-block p { margin: 1px 0 0; font-size: 8px; color: #444; }
-                            .stamp { border: 1.5px solid #059669; color: #059669; padding: 2px 6px; font-weight: 900; font-size: 9px; border-radius: 4px; }
-                            .match-summary { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; border: 1.5px solid #000; border-radius: 6px; padding: 5px 8px; background: #fafafa; margin-bottom: 6px; }
-                            .score-pill { font-size: 20px; font-weight: 900; padding: 2px 10px; border: 1.5px solid #000; border-radius: 6px; background: #fff; display: inline-block; }
-                            .roster-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
-                            .table-wrap { border: 1px solid #666; border-radius: 4px; overflow: hidden; }
-                            .table-title { background: #eee; font-weight: 800; font-size: 8.5px; padding: 2px 4px; border-bottom: 1px solid #666; text-transform: uppercase; }
-                            table { width: 100%; border-collapse: collapse; font-size: 8px; }
-                            th, td { padding: 2px 3px; border-bottom: 0.5px solid #ddd; text-align: left; }
-                            th { background: #f5f5f5; font-weight: 700; font-size: 7.5px; }
-                            .logs-section { border: 1px solid #999; border-radius: 4px; padding: 4px 6px; margin-bottom: 6px; font-size: 8px; max-height: 80px; overflow-y: auto; }
-                            .signatories { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 8px; padding-top: 4px; border-top: 1px solid #999; text-align: center; page-break-inside: avoid; }
-                            .sign-line { border-bottom: 1px solid #000; height: 20px; margin-bottom: 2px; font-weight: 700; font-size: 8px; }
-                          </style>
-                        </head>
-                        <body>
-                          <div class="header">
-                            <div class="title-block"><h1>${leagueBranding.leagueName}</h1><p>${leagueBranding.venueName} • ${gameSettings.courtName}</p></div>
-                            <div class="stamp">CERTIFIED FINAL</div>
-                          </div>
-                          <div class="match-summary">
-                            <div><h2 style="margin:0;font-size:12px;">${teamA?.name}</h2><p style="margin:0;font-size:8px;">Coach: ${teamA?.coachName || 'Staff'}</p></div>
-                            <div style="text-align:center;"><div class="score-pill">${activeMatch.scoreA} : ${activeMatch.scoreB}</div></div>
-                            <div style="text-align:right;"><h2 style="margin:0;font-size:12px;">${teamB?.name}</h2><p style="margin:0;font-size:8px;">Coach: ${teamB?.coachName || 'Staff'}</p></div>
-                          </div>
-                          <div class="roster-grid">
-                            <div class="table-wrap"><div class="table-title">${teamA?.name}</div><table><thead><tr><th>#</th><th>Player</th><th>PTS</th></tr></thead><tbody>${teamA?.players.map((p) => `<tr><td><b>#${p.jersey}</b></td><td>${p.name}</td><td><b>${activeMatch.stats[String(p.id)]?.points || 0}</b></td></tr>`).join('')}</tbody></table></div>
-                            <div class="table-wrap"><div class="table-title">${teamB?.name}</div><table><thead><tr><th>#</th><th>Player</th><th>PTS</th></tr></thead><tbody>${teamB?.players.map((p) => `<tr><td><b>#${p.jersey}</b></td><td>${p.name}</td><td><b>${activeMatch.stats[String(p.id)]?.points || 0}</b></td></tr>`).join('')}</tbody></table></div>
-                          </div>
-                          <div class="logs-section"><b>Play-by-Play Summary:</b><br>${activeMatch.logs?.map(l => `[${l.timestamp}]${l.description}`).join('<br>') || 'No logs recorded.'}</div>
-                          <div class="signatories">
-                            <div><div class="sign-line">${currentUser.displayName}</div><div style="font-size:7px;">Official Scorer</div></div>
-                            <div><div class="sign-line">Certified Official</div><div style="font-size:7px;">Head Referee</div></div>
-                            <div><div class="sign-line">Tournament Exec</div><div style="font-size:7px;">Commissioner</div></div>
-                          </div>
-                        </body>
-                      </html>
-                    `);
-                    printWindow.document.close();
-                    printWindow.focus();
-                    setTimeout(() => { printWindow.print(); printWindow.close(); }, 400);
-                  }} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-500 text-white font-black px-4 py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 shadow cursor-pointer print:hidden">
-                    <Printer className="w-4 h-4" /> Print 1-Sheet Report (PDF)
-                  </button>
-                </div>
-
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 sm:p-5 text-center space-y-2">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400">Certified Match Final • {currentSportConfig.name}</span>
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-4 sm:gap-8">
-                    <div className="text-center sm:text-right flex-1 w-full"><h2 className="text-xl font-black text-white truncate">{teamA?.name}</h2></div>
-                    <div className="flex items-center gap-4 bg-slate-900 px-6 py-2.5 rounded-xl border border-slate-800 flex-shrink-0">
-                      <span className="text-3xl sm:text-4xl font-black text-amber-400">{activeMatch.scoreA}</span>
-                      <span className="text-slate-600 text-xl font-bold">:</span>
-                      <span className="text-3xl sm:text-4xl font-black text-cyan-400">{activeMatch.scoreB}</span>
-                    </div>
-                    <div className="text-center sm:text-left flex-1 w-full"><h2 className="text-xl font-black text-white truncate">{teamB?.name}</h2></div>
-                  </div>
-                </div>
+              <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-6 shadow-2xl">
+                <h2 className="text-lg font-black text-white">Certified Match Final</h2>
               </div>
             )}
           </div>
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-slate-800 bg-slate-950 py-4 px-4 sm:px-6 mt-auto print:hidden">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
-          <p className="text-[11px] text-slate-400 italic">"I can do all things through Christ who strengthens me." <span className="text-amber-400/90 font-semibold not-italic">— Philippians 4:13</span></p>
-          <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Registered Trademark by <span className="text-slate-400">Kezjed Solutions</span></p>
-        </div>
-      </footer>
-
-      {/* Modals */}
       {selectedPlayer && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4 animate-in fade-in duration-150 print:hidden">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-sm overflow-hidden shadow-2xl relative">
@@ -1866,79 +1479,6 @@ export default function App() {
       <GameSettingsModal isOpen={isSettingsOpen} onClose={() => setIsSettingsOpen(false)} settings={gameSettings} onSaveSettings={handleSaveSettings} />
       {currentUser && <AccountManagerModal isOpen={isAccountModalOpen} onClose={() => setIsAccountModalOpen(false)} currentUser={currentUser} onUserUpdated={(updated) => setCurrentUser(updated)} />}
       <LeagueBrandingModal isOpen={isBrandingModalOpen} onClose={() => setIsBrandingModalOpen(false)} sessionId={activeSession.id} currentBranding={leagueBranding} onSaveBranding={(updated) => setLeagueBranding(updated)} />
-
-      {/* Tier Upgrade / PayMongo Modal */}
-      {showUpgradeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 print:hidden">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 text-white shadow-2xl">
-            <div className="text-center mb-6">
-              <h3 className="text-2xl font-bold text-amber-400">Match Limit Reached! 🚨</h3>
-              <p className="text-slate-400 text-sm mt-1">
-                You have reached the maximum allowed matches for your current plan. Choose a tier to unlock instant access and keep your tournament running.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              {/* Basic Tier */}
-              <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 flex flex-col justify-between">
-                <div>
-                  <h4 className="font-bold text-lg text-slate-200">Basic</h4>
-                  <div className="text-2xl font-extrabold text-white mt-1">₱199</div>
-                  <p className="text-xs text-slate-400 mt-2">Up to 10 matches. Perfect for single-day local games.</p>
-                </div>
-                <button 
-                  onClick={() => handleSelectTier('basic')}
-                  className="mt-4 w-full bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 rounded-xl text-sm transition cursor-pointer"
-                >
-                  Choose Basic
-                </button>
-              </div>
-
-              {/* Essential Tier */}
-              <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 flex flex-col justify-between">
-                <div>
-                  <h4 className="font-bold text-lg text-blue-400">Essential</h4>
-                  <div className="text-2xl font-extrabold text-white mt-1">₱299</div>
-                  <p className="text-xs text-slate-400 mt-2">Up to 30 matches. Great for weekend sportsfests.</p>
-                </div>
-                <button 
-                  onClick={() => handleSelectTier('essential')}
-                  className="mt-4 w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-xl text-sm transition cursor-pointer"
-                >
-                  Choose Essential
-                </button>
-              </div>
-
-              {/* Pro Tier */}
-              <div className="bg-gradient-to-b from-amber-500/20 to-slate-800/60 border border-amber-500/50 rounded-xl p-4 flex flex-col justify-between relative">
-                <span className="absolute -top-3 right-4 bg-amber-500 text-slate-950 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  Best Value
-                </span>
-                <div>
-                  <h4 className="font-bold text-lg text-amber-400">Pro</h4>
-                  <div className="text-2xl font-extrabold text-white mt-1">₱399</div>
-                  <p className="text-xs text-slate-400 mt-2">Unlimited matches, cloud sync, and live TV projection mode.</p>
-                </div>
-                <button 
-                  onClick={() => handleSelectTier('pro')}
-                  className="mt-4 w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded-lg text-sm transition shadow-lg shadow-amber-500/20 cursor-pointer"
-                >
-                  Choose Pro
-                </button>
-              </div>
-            </div>
-
-            <div className="text-center">
-              <button 
-                onClick={() => setShowUpgradeModal(false)}
-                className="text-xs text-slate-400 hover:text-white underline transition cursor-pointer"
-              >
-                Cancel / Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
