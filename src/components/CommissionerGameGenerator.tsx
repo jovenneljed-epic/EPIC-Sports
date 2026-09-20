@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { KeyRound, ShieldPlus, Copy, CheckCircle2, Trophy, Monitor } from 'lucide-react';
+import { ShieldPlus, Copy, CheckCircle2, Trophy } from 'lucide-react';
 
 interface CommissionerGameGeneratorProps {
   orgId: string;
@@ -37,7 +37,6 @@ export function CommissionerGameGenerator({ orgId }: CommissionerGameGeneratorPr
     setCopied(false);
 
     try {
-      // Generate a unique game identifier e.g., EPIC-BBALL-9821
       const randomNum = Math.floor(1000 + Math.random() * 9000);
       const gameId = `EPIC-${sportType.toUpperCase().slice(0, 4)}-${randomNum}`;
       const gamePassword = customPassword.trim() || generatePassword();
@@ -138,7 +137,7 @@ export function CommissionerGameGenerator({ orgId }: CommissionerGameGeneratorPr
         </div>
 
         <div className="sm:col-span-2">
-          <label className="block font-bold text-slate-400 mb-1 uppercase tracking-wider">Custom Password (Optional - leaves blank to auto-generate)</label>
+          <label className="block font-bold text-slate-400 mb-1 uppercase tracking-wider">Custom Password (Optional)</label>
           <input
             type="text"
             value={customPassword}
@@ -169,7 +168,7 @@ export function CommissionerGameGenerator({ orgId }: CommissionerGameGeneratorPr
               onClick={() => copyToClipboard(`Game ID: ${generatedGame.gameId}\nPassword: ${generatedGame.pass}`)}
               className="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer"
             >
-              <Copy className="w-3.5 h-3.5 text-amber-400" /> {copied ? 'Copied to Clipboard!' : 'Copy Credentials'}
+              <Copy className="w-3.5 h-3.5 text-amber-400" /> {copied ? 'Copied!' : 'Copy Credentials'}
             </button>
           </div>
 
@@ -183,9 +182,6 @@ export function CommissionerGameGenerator({ orgId }: CommissionerGameGeneratorPr
               <strong className="text-cyan-400 text-sm tracking-widest">{generatedGame.pass}</strong>
             </div>
           </div>
-          <p className="text-[11px] text-slate-400 italic">
-            Provide these credentials exclusively to the table official or franchise organizer assigned to this specific court.
-          </p>
         </div>
       )}
     </div>
