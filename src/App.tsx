@@ -15,13 +15,14 @@ import { PlayerLeaderboardView } from './components/PlayerLeaderboardView';
 import { SmartScheduleGenerator } from './components/SmartScheduleGenerator';
 import { LeagueBrandingModal, type LeagueBranding } from './components/LeagueBrandingModal';
 import { PublicTeamRegistration } from './components/PublicTeamRegistration';
+import { CommissionerGameGenerator } from './components/CommissionerGameGenerator';
 import { checkCanFinalizeMatch, TIER_PRICES } from './utils/tierLimits';
 import { 
   Play, Pause, X, Clock, Volume2, 
   CheckCircle2, Camera, UserCheck, AlertCircle, 
   BarChart3, Plus, Users, Award, Edit3, 
   Trash2, LogOut, UserCog, FileText, Calendar, 
-  Lock, Download, Upload, Monitor, Zap, Palette, QrCode
+  Lock, Download, Upload, Monitor, Zap, Palette, QrCode, KeyRound
 } from 'lucide-react';
 
 // --- Domain Models ---
@@ -53,7 +54,7 @@ export const SPORT_CONFIGS: Record<SportType, SportConfig> = {
   badminton: { id: 'badminton', name: 'Badminton', hasQuarters: false, hasSets: true, maxScorePerSet: 21, periodsName: 'Sets' },
 };
 
-type NavTab = 'desk' | 'roster' | 'stats' | 'schedule' | 'report' | 'leaderboard' | 'register';
+type NavTab = 'desk' | 'roster' | 'stats' | 'schedule' | 'report' | 'leaderboard' | 'register' | 'generator';
 
 export interface Player {
   id: string;
@@ -296,7 +297,7 @@ function HeaderActionCluster({ isCommissioner }: HeaderActionClusterProps) {
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
-  
+   
   useEffect(() => {
     async function initSession() {
       const user = await authStore.getCurrentUser();
@@ -937,6 +938,11 @@ export default function App() {
             <button type="button" onClick={() => handleTabChange('report')} className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${activeTab === 'report' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
               <FileText className="w-3.5 h-3.5" /> Report {activeMatch.status !== 'Final' && <Lock className="w-3 h-3 text-slate-500" />}
             </button>
+            {isCommissioner && (
+              <button type="button" onClick={() => handleTabChange('generator')} className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${activeTab === 'generator' ? 'bg-blue-600 text-white shadow-md' : 'text-amber-400 hover:text-white'}`}>
+                <KeyRound className="w-3.5 h-3.5" /> Game Tokens
+              </button>
+            )}
           </nav>
 
           <div className="flex items-center gap-1.5 justify-end w-full md:w-auto flex-wrap">
@@ -1003,6 +1009,12 @@ export default function App() {
       {/* Main Viewport */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 flex-1 w-full print:p-0 print:max-w-none">
         
+        {activeTab === 'generator' && isCommissioner && (
+          <div className="space-y-6 print:hidden">
+            <CommissionerGameGenerator orgId={activeSession.id} />
+          </div>
+        )}
+
         {activeTab === 'register' && (
           <div className="space-y-6 print:hidden">
             <div className="flex justify-between items-center bg-slate-900 p-4 rounded-2xl border border-slate-800">
