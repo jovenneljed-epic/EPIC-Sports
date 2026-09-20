@@ -821,7 +821,7 @@ export default function App() {
   const teamB = useMemo(() => teams.find((t) => t.id === activeMatch.teamBId), [teams, activeMatch.teamBId]);
   const currentSportConfig = SPORT_CONFIGS[activeMatch.sportType || 'basketball'];
 
-  // Authentication & Court Token Gate Check
+ // Authentication & Hybrid Gate Check
   if (!currentUser && !authenticatedGameToken) {
     return (
       <GameLoginGate 
@@ -836,6 +836,9 @@ export default function App() {
           }));
           setActiveTab('desk');
         }} 
+        onAdminAuthenticated={(user) => {
+          setCurrentUser(user);
+        }}
       />
     );
   }
