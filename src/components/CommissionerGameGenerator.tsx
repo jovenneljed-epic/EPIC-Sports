@@ -41,18 +41,16 @@ export function CommissionerGameGenerator({ orgId }: CommissionerGameGeneratorPr
       const gameId = `EPIC-${sportType.toUpperCase().slice(0, 4)}-${randomNum}`;
       const gamePassword = customPassword.trim() || generatePassword();
 
-      const { error } = await supabase.from('game_credentials').insert([
-        {
-          game_id: gameId,
-          org_id: orgId,
-          court_name: courtName,
-          sport_type: sportType,
-          game_password: gamePassword,
-          team_a_name: teamAName.trim(),
-          team_b_name: teamBName.trim(),
-          is_active: true,
-        },
-      ]);
+      const { error } = await supabase.from('game_credentials').insert({
+        game_id: gameId,
+        org_id: orgId,
+        court_name: courtName,
+        sport_type: sportType,
+        game_password: gamePassword,
+        team_a_name: teamAName.trim(),
+        team_b_name: teamBName.trim(),
+        is_active: true,
+      });
 
       if (error) throw error;
 
@@ -62,7 +60,7 @@ export function CommissionerGameGenerator({ orgId }: CommissionerGameGeneratorPr
       setCustomPassword('');
     } catch (err: any) {
       console.error('Error creating game ID:', err);
-      alert('Failed to generate secure Game ID.');
+      alert(`Failed to generate secure Game ID: ${err.message || JSON.stringify(err)}`);
     } finally {
       setLoading(false);
     }
