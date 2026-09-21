@@ -656,7 +656,9 @@ export default function App() {
     const allTeamsPlayers = [...teamA.players, ...teamB.players];
     const unverifiedOnCourtPlayer = allTeamsPlayers.some((p) => {
       const st = activeMatch.stats[String(p.id)];
-      return st?.isOnCourt && !st?.isCheckedIn;
+      const isOnCourt = st ? st.isOnCourt : true;
+      const isCheckedIn = st ? st.isCheckedIn : false;
+      return isOnCourt && !isCheckedIn;
     });
 
     if (!isClockRunning && unverifiedOnCourtPlayer) {
@@ -1111,15 +1113,35 @@ export default function App() {
 
                         {/* Clocks & Shot Clock Reset Controls Made Prominent */}
                         <div className="flex flex-wrap items-center justify-center gap-6 pt-4 border-t border-slate-800 w-full">
-                          {/* Game Clock */}
+                          {/* Game Clock with Strict Attendance Lockout State */}
                           <div className="flex items-center gap-3 bg-slate-900 px-5 py-2.5 rounded-2xl border border-slate-800 shadow-inner">
                             <Clock className="w-5 h-5 text-amber-400" />
                             <span className="font-mono text-3xl sm:text-4xl font-black text-white tracking-wider">{formatTime(gameSeconds)}</span>
-                            {!isViewer && activeMatch.status !== 'Final' && (
-                              <button type="button" onClick={handleToggleClock} className={`p-2 rounded-xl text-slate-950 font-black cursor-pointer transition transform active:scale-95 ${isClockRunning ? 'bg-amber-400 hover:bg-amber-300' : 'bg-emerald-400 hover:bg-emerald-300'}`} title={isClockRunning ? 'Pause Game Clock' : 'Start Game Clock'}>
-                                {isClockRunning ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
-                              </button>
-                            )}
+                            {!isViewer && activeMatch.status !== 'Final' && (() => {
+                              const allTeamsPlayers = [...(teamA?.players || []), ...(teamB?.players || [])];
+                              const hasUnverifiedOnCourt = allTeamsPlayers.some((p) => {
+                                const st = activeMatch.stats[String(p.id)];
+                                const isOnCourt = st ? st.isOnCourt : true; 
+                                const isCheckedIn = st ? st.isCheckedIn : false;
+                                return isOnCourt && !isCheckedIn;
+                              });
+
+                              return (
+                                <button 
+                                  type="button" 
+                                  onClick={handleToggleClock} 
+                                  disabled={hasUnverifiedOnCourt && !isClockRunning}
+                                  className={`p-2 rounded-xl text-slate-950 font-black cursor-pointer transition flex items-center gap-1 shadow ${
+                                    hasUnverifiedOnCourt && !isClockRunning 
+                                      ? 'bg-slate-700 opacity-40 cursor-not-allowed text-slate-400' 
+                                      : isClockRunning ? 'bg-amber-400 hover:bg-amber-300' : 'bg-emerald-400 hover:bg-emerald-300'
+                                  }`}
+                                  title={hasUnverifiedOnCourt && !isClockRunning ? 'Locked: Unlock all on-court players first' : (isClockRunning ? 'Pause Game Clock' : 'Start Game Clock')}
+                                >
+                                  {isClockRunning ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                                </button>
+                              );
+                            })()}
                           </div>
 
                           {/* Shot Clock */}
