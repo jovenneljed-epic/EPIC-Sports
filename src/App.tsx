@@ -22,7 +22,7 @@ import {
   CheckCircle2, Camera, UserCheck, AlertCircle, 
   BarChart3, Plus, Users, Award, Edit3, 
   Trash2, LogOut, UserCog, FileText, Calendar, 
-  Lock, Download, Upload, Monitor, Zap, Palette, QrCode, KeyRound, Printer
+  Lock, Download, Upload, Monitor, Zap, Palette, QrCode, KeyRound, Printer, ArrowLeftRight, ShieldAlert
 } from 'lucide-react';
 
 // --- Domain Models ---
@@ -123,6 +123,8 @@ export interface Match {
   status: MatchStatus;
   teamAFouls: number;
   teamBFouls: number;
+  timeoutsA: number;
+  timeoutsB: number;
   possession: 'A' | 'B';
   setsA?: number;
   setsB?: number;
@@ -323,6 +325,8 @@ export default function App() {
     status: 'Live',
     teamAFouls: 0,
     teamBFouls: 0,
+    timeoutsA: 4,
+    timeoutsB: 4,
     possession: 'A',
     setsA: 0,
     setsB: 0,
@@ -781,6 +785,36 @@ export default function App() {
     });
   }, [currentUser, gameSettings, teams]);
 
+  // Timeout call handler
+  const handleCallTimeout = (teamKey: 'A' | 'B') => {
+    setIsClockRunning(false);
+    arenaAudio.playWhistle();
+    setActiveMatch((prev) => {
+      if (teamKey === 'A' && prev.timeoutsA <= 0) {
+        alert('Home team has no timeouts remaining!');
+        return prev;
+      }
+      if (teamKey === 'B' && prev.timeoutsB <= 0) {
+        alert('Away team has no timeouts remaining!');
+        return prev;
+      }
+
+      const teamName = (teamKey === 'A' ? teamA?.name : teamB?.name) || 'Team';
+      const logEntry: PlayLog = {
+        id: `log_${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        description: `Referee Timeout called by ${teamName}`,
+      };
+
+      return {
+        ...prev,
+        timeoutsA: teamKey === 'A' ? prev.timeoutsA - 1 : prev.timeoutsA,
+        timeoutsB: teamKey === 'B' ? prev.timeoutsB - 1 : prev.timeoutsB,
+        logs: [logEntry, ...(prev.logs || [])],
+      };
+    });
+  };
+
   const handleSaveTeam = async (teamData: Team) => {
     setTeams((prev) => {
       const exists = prev.some((t) => t.id === teamData.id);
@@ -1074,7 +1108,7 @@ export default function App() {
                         <h4 className="text-sm font-bold text-white mt-2">{tA.name} <span className="text-slate-500 font-normal">vs</span> {tB.name}</h4>
                       </div>
                       <button type="button" onClick={() => {
-                        setActiveMatch((prev) => ({ ...prev, id: m.id, sessionId: activeSession.id, sportType: m.sportType, teamAId: m.teamAId, teamBId: m.teamBId, scoreA: 0, scoreB: 0, setsA: 0, setsB: 0, currentSet: 1, history: [], logs: [], quarter: 'Q1', status: 'Live', teamAFouls: 0, teamBFouls: 0, stats: {} }));
+                        setActiveMatch((prev) => ({ ...prev, id: m.id, sessionId: activeSession.id, sportType: m.sportType, teamAId: m.teamAId, teamBId: m.teamBId, scoreA: 0, scoreB: 0, setsA: 0, setsB: 0, currentSet: 1, history: [], logs: [], quarter: 'Q1', status: 'Live', teamAFouls: 0, teamBFouls: 0, timeoutsA: 4, timeoutsB: 4, stats: {} }));
                         handleTabChange('desk');
                       }} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-2 rounded-xl text-xs cursor-pointer shadow whitespace-nowrap">Load to Desk</button>
                     </div>
@@ -1125,19 +1159,50 @@ export default function App() {
                 )}
 
                 {teamA && teamB && (
-                  <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative">
+                  <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative space-y-6">
+                    
+                    {/* WINNER BANNER ALERT IF FINAL */}
+                    {activeMatch.status === 'Final' && (
+                      <div className="bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-slate-950 p-4 rounded-2xl text-center shadow-xl font-black text-xl uppercase tracking-wider animate-bounce">
+                        🏆 {activeMatch.scoreA > activeMatch.scoreB ? teamA.name : activeMatch.scoreB > activeMatch.scoreA ? teamB.name : 'Match Tied'} Wins! 🏆
+                      </div>
+                    )}
+
                     <div className="flex flex-col lg:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-800">
-                      <div className="flex-1 text-center lg:text-left w-full">
+                      
+                      {/* HOME TEAM INFO & TIMEOUTS / FOULS */}
+                      <div className="flex-1 text-center lg:text-left w-full space-y-2">
                         <span className="text-xs font-bold tracking-widest text-slate-400 uppercase">Home Franchise</span>
                         <h2 className="text-3xl font-black text-white truncate">{teamA.name}</h2>
-                        <p className="text-xs text-slate-400 mt-1">Coach: {teamA.coachName || 'Staff'}</p>
+                        <p className="text-xs text-slate-400">Coach: {teamA.coachName || 'Staff'}</p>
+                        
+                        <div className="flex flex-wrap gap-2 pt-2 justify-center lg:justify-start">
+                          <span className="px-2.5 py-1 bg-slate-950 text-amber-400 border border-slate-800 rounded-xl font-mono text-xs font-bold">Team Fouls: {activeMatch.teamAFouls}</span>
+                          <span className="px-2.5 py-1 bg-slate-950 text-blue-400 border border-slate-800 rounded-xl font-mono text-xs font-bold">Timeouts Left: {activeMatch.timeoutsA}</span>
+                          {!isViewer && activeMatch.status !== 'Final' && (
+                            <button onClick={() => handleCallTimeout('A')} className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold cursor-pointer transition">Call Timeout</button>
+                          )}
+                        </div>
                       </div>
 
+                      {/* ENLARGED SCOREBOARD & POSSESSION ARROW */}
                       <div className="flex flex-col items-center bg-slate-950 px-8 sm:px-12 py-6 rounded-3xl border-2 border-slate-800 shadow-2xl w-full lg:w-auto space-y-4">
-                        <span className="text-sm text-amber-400 font-black uppercase tracking-widest text-center">
-                          {currentSportConfig.name} • {activeMatch.court} • <span className="text-emerald-400">{activeMatch.status}</span>
-                        </span>
+                        <div className="flex items-center justify-between w-full gap-4">
+                          <span className="text-xs text-amber-400 font-black uppercase tracking-widest">
+                            {currentSportConfig.name} • {activeMatch.court}
+                          </span>
+                          
+                          {/* POSSESSION ARROW TOGGLE */}
+                          <button 
+                            onClick={() => setActiveMatch(prev => ({ ...prev, possession: prev.possession === 'A' ? 'B' : 'A' }))}
+                            className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-amber-400 border border-slate-800 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition shadow"
+                            title="Toggle Ball Possession Arrow"
+                          >
+                            <ArrowLeftRight className="w-3.5 h-3.5" /> Possession: <strong className="text-white">{activeMatch.possession === 'A' ? teamA.name : teamB.name}</strong>
+                          </button>
+                        </div>
                         
+                        {/* Score Numbers Made Massive */}
                         <div className="flex items-center gap-8 sm:gap-12">
                           <div className="text-center">
                             <span className="text-xs text-slate-500 uppercase tracking-widest block font-bold mb-1">Home</span>
@@ -1150,7 +1215,10 @@ export default function App() {
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center justify-center gap-6 pt-4 border-t border-slate-800 w-full">
+                        {/* Clocks & Dead Ball Stop Time Button */}
+                        <div className="flex flex-wrap items-center justify-center gap-4 pt-4 border-t border-slate-800 w-full">
+                          
+                          {/* Game Clock */}
                           <div className="flex items-center gap-3 bg-slate-900 px-5 py-2.5 rounded-2xl border border-slate-800 shadow-inner">
                             <Clock className="w-5 h-5 text-amber-400" />
                             <span className="font-mono text-3xl sm:text-4xl font-black text-white tracking-wider">{formatTime(gameSeconds)}</span>
@@ -1181,25 +1249,45 @@ export default function App() {
                             })()}
                           </div>
 
+                          {/* DEAD BALL / REFEREE STOP TIME BUTTON */}
+                          {!isViewer && activeMatch.status !== 'Final' && (
+                            <button
+                              onClick={() => setIsClockRunning(false)}
+                              className="bg-red-600 hover:bg-red-500 text-white font-black px-4 py-3 rounded-2xl text-xs flex items-center gap-1.5 cursor-pointer shadow-lg transition uppercase tracking-wider"
+                              title="Instantly stop time for dead ball or referee timeouts"
+                            >
+                              <ShieldAlert className="w-4 h-4" /> Stop Time (Dead Ball)
+                            </button>
+                          )}
+
+                          {/* Shot Clock */}
                           <div className="flex items-center gap-3 bg-slate-900 px-5 py-2.5 rounded-2xl border border-slate-800 shadow-inner">
                             <span className="text-xs font-black text-amber-400 uppercase tracking-wider">Shot Clock:</span>
                             <span className={`font-mono text-3xl sm:text-4xl font-black w-14 text-center tracking-wider ${shotClock <= 5 ? 'text-red-400 animate-pulse' : 'text-amber-400'}`}>
                               {shotClock}s
                             </span>
                             {!isViewer && activeMatch.status !== 'Final' && (
-                              <div className="flex items-center gap-1.5 pl-3 border-l border-slate-800">
-                                <button type="button" onClick={() => setShotClock(24)} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-black rounded-xl text-xs cursor-pointer shadow" title="Reset Shot Clock to 24s">24</button>
-                              </div>
+                              <button type="button" onClick={() => setShotClock(24)} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-black rounded-xl text-xs cursor-pointer shadow" title="Reset Shot Clock to 24s">24</button>
                             )}
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex-1 text-center lg:text-right w-full">
+                      {/* AWAY TEAM INFO & TIMEOUTS / FOULS */}
+                      <div className="flex-1 text-center lg:text-right w-full space-y-2">
                         <span className="text-xs font-bold tracking-widest text-slate-400 uppercase">Away Franchise</span>
                         <h2 className="text-3xl font-black text-white truncate">{teamB.name}</h2>
-                        <p className="text-xs text-slate-400 mt-1">Coach: {teamB.coachName || 'Staff'}</p>
+                        <p className="text-xs text-slate-400">Coach: {teamB.coachName || 'Staff'}</p>
+                        
+                        <div className="flex flex-wrap gap-2 pt-2 justify-center lg:justify-end">
+                          {!isViewer && activeMatch.status !== 'Final' && (
+                            <button onClick={() => handleCallTimeout('B')} className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold cursor-pointer transition">Call Timeout</button>
+                          )}
+                          <span className="px-2.5 py-1 bg-slate-950 text-blue-400 border border-slate-800 rounded-xl font-mono text-xs font-bold">Timeouts Left: {activeMatch.timeoutsB}</span>
+                          <span className="px-2.5 py-1 bg-slate-950 text-cyan-400 border border-slate-800 rounded-xl font-mono text-xs font-bold">Team Fouls: {activeMatch.teamBFouls}</span>
+                        </div>
                       </div>
+
                     </div>
 
                     <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-xs">
@@ -1276,7 +1364,7 @@ export default function App() {
                   </div>
                 )}
 
-                {/* LIVE PLAY-BY-PLAY AUDIT FEED DISPLAYED DIRECTLY ON DESK */}
+                {/* LIVE PLAY-BY-PLAY AUDIT FEED */}
                 <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-3 mt-6">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                     <h3 className="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
