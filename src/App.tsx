@@ -336,6 +336,10 @@ export default function App() {
     stats: {},
   }));
 
+  // Early declarations for teamA and teamB so they can be safely used in callbacks
+  const teamA = useMemo(() => teams.find((t) => t.id === activeMatch.teamAId), [teams, activeMatch.teamAId]);
+  const teamB = useMemo(() => teams.find((t) => t.id === activeMatch.teamBId), [teams, activeMatch.teamBId]);
+
   const [gameSeconds, setGameSeconds] = useState(DEFAULT_SETTINGS.quarterMinutes * 60);
   const [shotClock, setShotClock] = useState(DEFAULT_SETTINGS.shotClockSeconds);
   const [isClockRunning, setIsClockRunning] = useState(false);
@@ -849,7 +853,7 @@ export default function App() {
       return {
         ...prev,
         quarter: nextQuarter,
-        teamAFouls: 0, // Reset team fouls per quarter
+        teamAFouls: 0,
         teamBFouls: 0,
         logs: [logEntry, ...(prev.logs || [])],
       };
@@ -888,8 +892,6 @@ export default function App() {
     }
   };
 
-  const teamA = useMemo(() => teams.find((t) => t.id === activeMatch.teamAId), [teams, activeMatch.teamAId]);
-  const teamB = useMemo(() => teams.find((t) => t.id === activeMatch.teamBId), [teams, activeMatch.teamBId]);
   const currentSportConfig = SPORT_CONFIGS[activeMatch.sportType || 'basketball'];
 
   if (!currentUser && !authenticatedGameToken) {
