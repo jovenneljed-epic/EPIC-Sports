@@ -29,6 +29,7 @@ import {
 export type SportType = 'basketball' | 'volleyball' | 'badminton';
 export type MatchStatus = 'Upcoming' | 'Live' | 'Final';
 export type Quarter = 'Q1' | 'Q2' | 'Q3' | 'Q4' | 'OT' | 'Final';
+type NavTab = 'desk' | 'roster' | 'stats' | 'schedule' | 'report' | 'leaderboard' | 'register' | 'generator';
 
 export interface TournamentSession {
   id: string;
@@ -53,8 +54,6 @@ export const SPORT_CONFIGS: Record<SportType, SportConfig> = {
   volleyball: { id: 'volleyball', name: 'Volleyball', hasQuarters: false, hasSets: true, maxScorePerSet: 25, periodsName: 'Sets' },
   badminton: { id: 'badminton', name: 'Badminton', hasQuarters: false, hasSets: true, maxScorePerSet: 21, periodsName: 'Sets' },
 };
-
-type NavTab = 'desk' | 'roster' | 'stats' | 'schedule' | 'report' | 'leaderboard' | 'register' | 'generator';
 
 export interface Player {
   id: string;
@@ -160,7 +159,7 @@ const DEFAULT_SESSION: TournamentSession = {
   endDate: '2026-09-21',
 };
 
-// --- Manual Arena Voice Announcer Utility ---
+// --- Utilities ---
 const speakAnnouncement = (text: string) => {
   if ('speechSynthesis' in window) {
     window.speechSynthesis.cancel();
@@ -172,7 +171,7 @@ const speakAnnouncement = (text: string) => {
   }
 };
 
-// --- Champion Banner Template Component for Free Facebook Automation ---
+// --- Champion Banner Component ---
 interface ChampionBannerProps {
   tournamentName: string;
   winner: string;
@@ -181,61 +180,55 @@ interface ChampionBannerProps {
 }
 
 const ChampionBanner = React.forwardRef<HTMLDivElement, ChampionBannerProps>(
-  ({ tournamentName, winner, loser, score }, ref) => {
-    return (
-      <div style={{ position: 'absolute', top: -9999, left: -9999, visibility: 'visible' }}>
-        <div
-          ref={ref}
-          style={{
-            width: '1200px',
-            height: '630px',
-            background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)',
-            color: '#ffffff',
-            fontFamily: 'sans-serif',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'space-between',
-            padding: '60px',
-            boxSizing: 'border-box',
-            border: '8px solid #f59e0b',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#f59e0b', letterSpacing: '2px' }}>
-              EPIC SPORTS CIRCUIT
-            </span>
-            <span style={{ fontSize: '20px', color: '#93c5fd' }}>{tournamentName}</span>
-          </div>
+  ({ tournamentName, winner, loser, score }, ref) => (
+    <div style={{ position: 'absolute', top: -9999, left: -9999, visibility: 'visible' }}>
+      <div
+        ref={ref}
+        style={{
+          width: '1200px',
+          height: '630px',
+          background: 'linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%)',
+          color: '#ffffff',
+          fontFamily: 'sans-serif',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          padding: '60px',
+          boxSizing: 'border-box',
+          border: '8px solid #f59e0b',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ fontSize: '24px', fontWeight: 'bold', color: '#f59e0b', letterSpacing: '2px' }}>
+            EPIC SPORTS CIRCUIT
+          </span>
+          <span style={{ fontSize: '20px', color: '#93c5fd' }}>{tournamentName}</span>
+        </div>
 
-          <div style={{ textAlign: 'center', margin: 'auto 0' }}>
-            <div style={{ fontSize: '32px', textTransform: 'uppercase', color: '#f59e0b', fontWeight: 'bold', marginBottom: '10px' }}>
-              🏆 Official Champions 🏆
-            </div>
-            <h1 style={{ fontSize: '72px', margin: '0 0 20px 0', fontWeight: '900', textShadow: '0 4px 10px rgba(0,0,0,0.5)' }}>
-              {winner}
-            </h1>
-            <div style={{ fontSize: '28px', color: '#cbd5e1' }}>
-              Defeated {loser} • Final Score: <span style={{ color: '#6ee7b7', fontWeight: 'bold' }}>{score}</span>
-            </div>
+        <div style={{ textAlign: 'center', margin: 'auto 0' }}>
+          <div style={{ fontSize: '32px', textTransform: 'uppercase', color: '#f59e0b', fontWeight: 'bold', marginBottom: '10px' }}>
+            🏆 Official Champions 🏆
           </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '2px solid rgba(255,255,255,0.2)', paddingTop: '20px' }}>
-            <span style={{ fontSize: '18px', color: '#94a3b8' }}>#EPICSports #Championship #Victory</span>
-            <span style={{ fontSize: '18px', color: '#f59e0b', fontWeight: 'bold' }}>The Home of Champions</span>
+          <h1 style={{ fontSize: '72px', margin: '0 0 20px 0', fontWeight: '900', textShadow: '0 4px 10px rgba(0,0,0,0.5)' }}>
+            {winner}
+          </h1>
+          <div style={{ fontSize: '28px', color: '#cbd5e1' }}>
+            Defeated {loser} • Final Score: <span style={{ color: '#6ee7b7', fontWeight: 'bold' }}>{score}</span>
           </div>
         </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '2px solid rgba(255,255,255,0.2)', paddingTop: '20px' }}>
+          <span style={{ fontSize: '18px', color: '#94a3b8' }}>#EPICSports #Championship #Victory</span>
+          <span style={{ fontSize: '18px', color: '#f59e0b', fontWeight: 'bold' }}>The Home of Champions</span>
+        </div>
       </div>
-    );
-  }
+    </div>
+  )
 );
 ChampionBanner.displayName = 'ChampionBanner';
 
-// --- Header Action Cluster for Free FB Automated Posting ---
-interface HeaderActionClusterProps {
-  isCommissioner: boolean;
-}
-
-function HeaderActionCluster({ isCommissioner }: HeaderActionClusterProps) {
+// --- Header Action Cluster ---
+function HeaderActionCluster({ isCommissioner }: { isCommissioner: boolean }) {
   const bannerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(false);
 
@@ -295,10 +288,11 @@ function HeaderActionCluster({ isCommissioner }: HeaderActionClusterProps) {
   );
 }
 
+// --- Main App Component ---
 export default function App() {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [authenticatedGameToken, setAuthenticatedGameToken] = useState<any>(null);
-   
+  
   useEffect(() => {
     async function initSession() {
       const user = await authStore.getCurrentUser();
@@ -316,39 +310,33 @@ export default function App() {
   const [scheduledMatches, setScheduledMatches] = useState<ScheduledMatch[]>([]);
   const [gameSettings, setGameSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
 
-  // Active Match State
-  const [activeMatch, setActiveMatch] = useState<Match>(() => {
-    const defaultState: Match = {
-      id: `m_${Date.now()}`,
-      sessionId: DEFAULT_SESSION.id,
-      sportType: DEFAULT_SESSION.sportType,
-      teamAId: '',
-      teamBId: '',
-      scoreA: 0,
-      scoreB: 0,
-      quarter: 'Q1',
-      court: DEFAULT_SETTINGS.courtName,
-      status: 'Live',
-      teamAFouls: 0,
-      teamBFouls: 0,
-      possession: 'A',
-      setsA: 0,
-      setsB: 0,
-      currentSet: 1,
-      history: [],
-      logs: [],
-      stats: {},
-    };
-    return defaultState;
-  });
+  const [activeMatch, setActiveMatch] = useState<Match>(() => ({
+    id: `m_${Date.now()}`,
+    sessionId: DEFAULT_SESSION.id,
+    sportType: DEFAULT_SESSION.sportType,
+    teamAId: '',
+    teamBId: '',
+    scoreA: 0,
+    scoreB: 0,
+    quarter: 'Q1',
+    court: DEFAULT_SETTINGS.courtName,
+    status: 'Live',
+    teamAFouls: 0,
+    teamBFouls: 0,
+    possession: 'A',
+    setsA: 0,
+    setsB: 0,
+    currentSet: 1,
+    history: [],
+    logs: [],
+    stats: {},
+  }));
 
-  // Clock
   const [gameSeconds, setGameSeconds] = useState(DEFAULT_SETTINGS.quarterMinutes * 60);
   const [shotClock, setShotClock] = useState(DEFAULT_SETTINGS.shotClockSeconds);
   const [isClockRunning, setIsClockRunning] = useState(false);
   const timerRef = useRef<number | null>(null);
 
-  // Guarded tab changer
   const handleTabChange = (newTab: NavTab) => {
     if (activeTab === 'desk' && activeMatch.status === 'Live') {
       const confirmLeave = window.confirm(
@@ -359,7 +347,6 @@ export default function App() {
     setActiveTab(newTab);
   };
 
-  // Prevent accidental browser tab close
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (activeMatch.status === 'Live') {
@@ -382,16 +369,10 @@ export default function App() {
     accentColor: 'amber',
   });
 
-  // Load cloud data
   useEffect(() => {
     async function loadCloudData() {
       try {
-        const { data: orgData } = await supabase
-          .from('organizations')
-          .select('*')
-          .eq('id', activeSession.id)
-          .maybeSingle();
-
+        const { data: orgData } = await supabase.from('organizations').select('*').eq('id', activeSession.id).maybeSingle();
         if (orgData) {
           setCurrentTier(orgData.tier || 'free');
           if (orgData.name) {
@@ -406,11 +387,7 @@ export default function App() {
           }
         }
 
-        const { data: teamData } = await supabase
-          .from('teams')
-          .select('*')
-          .eq('org_id', activeSession.id);
-
+        const { data: teamData } = await supabase.from('teams').select('*').eq('org_id', activeSession.id);
         if (teamData) {
           setTeams(teamData.map((t: any) => ({
             id: t.id,
@@ -422,11 +399,7 @@ export default function App() {
           })));
         }
 
-        const { data: matchData } = await supabase
-          .from('scheduled_matches')
-          .select('*')
-          .eq('org_id', activeSession.id);
-
+        const { data: matchData } = await supabase.from('scheduled_matches').select('*').eq('org_id', activeSession.id);
         if (matchData) {
           setScheduledMatches(matchData.map((m: any) => ({
             id: m.id,
@@ -439,12 +412,7 @@ export default function App() {
           })));
         }
 
-        const { data: settingsData } = await supabase
-          .from('game_settings')
-          .select('*')
-          .eq('org_id', activeSession.id)
-          .maybeSingle();
-
+        const { data: settingsData } = await supabase.from('game_settings').select('*').eq('org_id', activeSession.id).maybeSingle();
         if (settingsData) {
           setGameSettings({
             quarterMinutes: settingsData.quarter_minutes,
@@ -459,12 +427,9 @@ export default function App() {
       }
     }
 
-    if (currentUser || authenticatedGameToken) {
-      loadCloudData();
-    }
+    if (currentUser || authenticatedGameToken) loadCloudData();
   }, [activeSession.id, currentUser, authenticatedGameToken]);
 
-  // Multi-Court Real-Time Auto-Persistence keyed by match_id
   useEffect(() => {
     if (!activeMatch?.id || activeMatch.status === 'Final') return;
 
@@ -474,11 +439,7 @@ export default function App() {
           match_id: activeMatch.id,
           org_id: activeSession.id,
           court_name: activeMatch.court,
-          match_data: {
-            ...activeMatch,
-            gameSeconds,
-            shotClock,
-          },
+          match_data: { ...activeMatch, gameSeconds, shotClock },
           updated_at: new Date().toISOString(),
         });
       } catch (err) {
@@ -489,21 +450,14 @@ export default function App() {
     return () => clearTimeout(autoSaveTimer);
   }, [activeMatch, gameSeconds, shotClock, activeSession?.id]);
 
-  const completedMatchesCount = useMemo(() => {
-    return scheduledMatches.filter((m) => m.status === 'Completed').length;
-  }, [scheduledMatches]);
+  const completedMatchesCount = useMemo(() => scheduledMatches.filter((m) => m.status === 'Completed').length, [scheduledMatches]);
 
   const handleSelectTier = async (tierKey: 'basic' | 'essential' | 'pro') => {
     const tierInfo = TIER_PRICES[tierKey];
     try {
       const { data, error } = await supabase.functions.invoke("create-checkout-session", {
-        body: {
-          orgId: activeSession.id,
-          amountInPesos: tierInfo.price,
-          tier: tierKey,
-        },
+        body: { orgId: activeSession.id, amountInPesos: tierInfo.price, tier: tierKey },
       });
-
       if (error) throw error;
       if (data?.url) window.location.href = data.url;
     } catch (err) {
@@ -513,8 +467,7 @@ export default function App() {
   };
 
   const handleAttemptFinalizeMatch = async () => {
-    const canProceed = checkCanFinalizeMatch(currentTier, completedMatchesCount);
-    if (!canProceed) {
+    if (!checkCanFinalizeMatch(currentTier, completedMatchesCount)) {
       setShowUpgradeModal(true);
       return;
     }
@@ -524,7 +477,6 @@ export default function App() {
       setActiveMatch((prev) => ({ ...prev, status: 'Final', quarter: 'Final' }));
       arenaAudio.playArenaBuzzer();
       speakAnnouncement("The match is now final!");
-
       await supabase.from('live_active_matches').delete().eq('match_id', activeMatch.id);
     }
   };
@@ -538,14 +490,13 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
-  // Biometrics hydration
   useEffect(() => {
     let isMounted = true;
     async function loadBiometrics() {
       try {
-        const { data, error, status } = await supabase.from('sports_players').select('id, face_descriptor');
+        const { data, status } = await supabase.from('sports_players').select('id, face_descriptor');
         if (status === 401) return;
-        if (data && !error && isMounted) {
+        if (data && isMounted) {
           setTeams((prev) =>
             prev.map((t) => ({
               ...t,
@@ -620,14 +571,12 @@ export default function App() {
     reader.readAsText(file);
   };
 
-  const enrolledRoster = useMemo(() => {
-    return teams.flatMap((t) => t.players).filter((p) => p.descriptor).map((p) => ({
-      id: String(p.id),
-      name: p.name,
-      jersey: p.jersey,
-      descriptor: p.descriptor!,
-    }));
-  }, [teams]);
+  const enrolledRoster = useMemo(() => teams.flatMap((t) => t.players).filter((p) => p.descriptor).map((p) => ({
+    id: String(p.id),
+    name: p.name,
+    jersey: p.jersey,
+    descriptor: p.descriptor!,
+  })), [teams]);
 
   const allPlayers = useMemo(() => teams.flatMap((t) => t.players), [teams]);
   const filteredTeams = useMemo(() => teams.filter((t) => (t.sportType || 'basketball') === selectedSportTab), [teams, selectedSportTab]);
@@ -649,7 +598,7 @@ export default function App() {
       setShotClock((prev) => {
         if (prev <= 1) {
           arenaAudio.playArenaBuzzer();
-          return 14; // Automatically reset to 14 when shot clock buzzer triggers
+          return 14; 
         }
         return prev - 1;
       });
@@ -683,21 +632,16 @@ export default function App() {
     setActiveMatch((prev) => {
       const st = prev.stats[idKey];
       if (!st || !st.isCheckedIn) return prev;
-      return {
-        ...prev,
-        stats: { ...prev.stats, [idKey]: { ...st, isOnCourt: !st.isOnCourt } },
-      };
+      return { ...prev, stats: { ...prev.stats, [idKey]: { ...st, isOnCourt: !st.isOnCourt } } };
     });
   }, []);
 
   const handleEnrollSuccess = useCallback(async (playerId: string, descriptor: number[]) => {
     const idKey = String(playerId).trim();
-    setTeams((prev) => {
-      return prev.map((t) => ({
-        ...t,
-        players: t.players.map((p) => (String(p.id) === idKey ? { ...p, descriptor } : p)),
-      }));
-    });
+    setTeams((prev) => prev.map((t) => ({
+      ...t,
+      players: t.players.map((p) => (String(p.id) === idKey ? { ...p, descriptor } : p)),
+    })));
     try {
       await supabase.from('sports_players').update({ face_descriptor: descriptor }).eq('id', idKey);
     } catch (err) {
@@ -764,7 +708,6 @@ export default function App() {
       const fouledOut = nextFouls >= gameSettings.foulDisqualificationLimit;
       const nextTeamAFouls = teamKey === 'A' ? prev.teamAFouls + 1 : prev.teamAFouls;
       const nextTeamBFouls = teamKey === 'B' ? prev.teamBFouls + 1 : prev.teamBFouls;
-
       const teamName = (teamKey === 'A' ? teams.find(t => t.id === prev.teamAId)?.name : teams.find(t => t.id === prev.teamBId)?.name) || 'Team';
 
       const logEntry: PlayLog = {
@@ -778,10 +721,7 @@ export default function App() {
         teamAFouls: nextTeamAFouls,
         teamBFouls: nextTeamBFouls,
         logs: [logEntry, ...(prev.logs || [])],
-        stats: {
-          ...prev.stats,
-          [idKey]: { ...st, fouls: nextFouls, isFouledOut: fouledOut },
-        },
+        stats: { ...prev.stats, [idKey]: { ...st, fouls: nextFouls, isFouledOut: fouledOut } },
       };
     });
   }, [currentUser, gameSettings, teams]);
@@ -820,7 +760,6 @@ export default function App() {
   const teamB = useMemo(() => teams.find((t) => t.id === activeMatch.teamBId), [teams, activeMatch.teamBId]);
   const currentSportConfig = SPORT_CONFIGS[activeMatch.sportType || 'basketball'];
 
-  // Authentication & Court Token Gate Check
   if (!currentUser && !authenticatedGameToken) {
     return (
       <GameLoginGate 
@@ -835,9 +774,7 @@ export default function App() {
           }));
           setActiveTab('desk');
         }} 
-        onAdminAuthenticated={(user) => {
-          setCurrentUser(user);
-        }}
+        onAdminAuthenticated={(user) => setCurrentUser(user)}
       />
     );
   }
@@ -845,33 +782,18 @@ export default function App() {
   const isCommissioner = currentUser ? currentUser.role === 'commissioner' : false;
   const isViewer = currentUser ? currentUser.role === 'viewer' : false;
 
-  // --- SPECTATOR TV DISPLAY MODE ---
   if (isSpectatorMode) {
     return (
       <div className="min-h-screen bg-black text-white flex flex-col justify-between p-8 font-sans selection:bg-none">
         <div className="flex justify-between items-center border-b border-zinc-800 pb-4">
           <div className="flex items-center gap-3">
-            <img 
-              src={leagueBranding.logoUrl || '/epic-logo.png'} 
-              alt="League Logo" 
-              onError={(e) => { (e.target as HTMLImageElement).src = '/epic-logo.png'; }}
-              className="w-12 h-12 rounded-2xl border border-blue-500/30 object-cover bg-zinc-900" 
-            />
+            <img src={leagueBranding.logoUrl || '/epic-logo.png'} alt="League Logo" onError={(e) => { (e.target as HTMLImageElement).src = '/epic-logo.png'; }} className="w-12 h-12 rounded-2xl border border-blue-500/30 object-cover bg-zinc-900" />
             <div>
-              <h1 className="text-xl font-black uppercase tracking-wider text-amber-400">
-                {leagueBranding.leagueName}
-              </h1>
-              <p className="text-xs text-zinc-400">
-                {leagueBranding.venueName} • {gameSettings.courtName}
-              </p>
+              <h1 className="text-xl font-black uppercase tracking-wider text-amber-400">{leagueBranding.leagueName}</h1>
+              <p className="text-xs text-zinc-400">{leagueBranding.venueName} • {gameSettings.courtName}</p>
             </div>
           </div>
-          <button
-            onClick={() => setIsSpectatorMode(false)}
-            className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-xl text-xs font-bold border border-zinc-800 cursor-pointer"
-          >
-            Exit TV Mode
-          </button>
+          <button onClick={() => setIsSpectatorMode(false)} className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 rounded-xl text-xs font-bold border border-zinc-800 cursor-pointer">Exit TV Mode</button>
         </div>
 
         {teamA && teamB ? (
@@ -888,9 +810,7 @@ export default function App() {
                 <span className="text-zinc-600 text-5xl font-bold">:</span>
                 <span className="text-8xl lg:text-9xl font-black text-cyan-400 tabular-nums">{activeMatch.scoreB}</span>
               </div>
-              <div className="mt-4 font-mono text-3xl font-black text-white tracking-widest bg-zinc-900 px-6 py-2 rounded-xl border border-zinc-800">
-                {formatTime(gameSeconds)}
-              </div>
+              <div className="mt-4 font-mono text-3xl font-black text-white tracking-widest bg-zinc-900 px-6 py-2 rounded-xl border border-zinc-800">{formatTime(gameSeconds)}</div>
             </div>
             <div className="space-y-2">
               <span className="text-xs font-black uppercase tracking-widest text-zinc-500">Away Team</span>
@@ -902,35 +822,23 @@ export default function App() {
           <div className="text-center py-24 text-zinc-500 text-xl font-bold">No active match loaded on Scorer Desk.</div>
         )}
 
-        <div className="text-center text-xs text-zinc-600 border-t border-zinc-900 pt-4">
-          Powered by Kezjed Solutions • Philippians 4:13
-        </div>
+        <div className="text-center text-xs text-zinc-600 border-t border-zinc-900 pt-4">Powered by Kezjed Solutions • Philippians 4:13</div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white print:bg-white print:text-black">
-      {/* Top Header */}
       <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-40 shadow-xl print:hidden">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 flex flex-col md:flex-row items-center justify-between gap-3">
           <div className="flex items-center justify-between w-full md:w-auto">
             <div className="flex items-center gap-2.5">
-              <img 
-                src={leagueBranding.logoUrl || '/epic-logo.png'} 
-                alt="League Logo" 
-                onError={(e) => { (e.target as HTMLImageElement).src = '/epic-logo.png'; }}
-                className="w-9 h-9 rounded-xl shadow-lg border border-blue-500/30 object-cover bg-slate-900" 
-              />
+              <img src={leagueBranding.logoUrl || '/epic-logo.png'} alt="League Logo" onError={(e) => { (e.target as HTMLImageElement).src = '/epic-logo.png'; }} className="w-9 h-9 rounded-xl shadow-lg border border-blue-500/30 object-cover bg-slate-900" />
               <div>
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <h1 className="text-base font-black tracking-tight text-white uppercase">
-                    {leagueBranding.leagueName}
-                  </h1>
+                  <h1 className="text-base font-black tracking-tight text-white uppercase">{leagueBranding.leagueName}</h1>
                   {leagueBranding.sponsorTagline && (
-                    <span className="text-[9px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/30 px-1.5 py-0.2 rounded-full uppercase truncate max-w-[160px]">
-                      {leagueBranding.sponsorTagline}
-                    </span>
+                    <span className="text-[9px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/30 px-1.5 py-0.2 rounded-full uppercase truncate max-w-[160px]">{leagueBranding.sponsorTagline}</span>
                   )}
                 </div>
                 <p className="text-[10px] text-slate-400 font-semibold">{leagueBranding.venueName}</p>
@@ -939,97 +847,43 @@ export default function App() {
           </div>
 
           <nav className="flex items-center bg-slate-950/90 p-1 rounded-xl border border-slate-800 overflow-x-auto max-w-full w-full md:w-auto scrollbar-none">
-            <button type="button" onClick={() => handleTabChange('roster')} className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${activeTab === 'roster' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
-              <Users className="w-3.5 h-3.5" /> Franchises
-            </button>
-            <button type="button" onClick={() => handleTabChange('schedule')} className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${activeTab === 'schedule' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
-              <Calendar className="w-3.5 h-3.5" /> Schedule ({scheduledMatches.length})
-            </button>
-            <button type="button" onClick={() => handleTabChange('desk')} className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${activeTab === 'desk' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
-              <Clock className="w-3.5 h-3.5" /> Desk
-            </button>
-            <button type="button" onClick={() => handleTabChange('stats')} className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${activeTab === 'stats' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
-              <BarChart3 className="w-3.5 h-3.5" /> Standings
-            </button>
-            <button type="button" onClick={() => handleTabChange('leaderboard')} className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${activeTab === 'leaderboard' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
-              <Award className="w-3.5 h-3.5 text-amber-400" /> Hero Cards
-            </button>
-            <button type="button" onClick={() => handleTabChange('report')} className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${activeTab === 'report' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}>
-              <FileText className="w-3.5 h-3.5" /> Report {activeMatch.status !== 'Final' && <Lock className="w-3 h-3 text-slate-500" />}
-            </button>
+            <button type="button" onClick={() => handleTabChange('roster')} className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${activeTab === 'roster' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><Users className="w-3.5 h-3.5" /> Franchises</button>
+            <button type="button" onClick={() => handleTabChange('schedule')} className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${activeTab === 'schedule' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><Calendar className="w-3.5 h-3.5" /> Schedule ({scheduledMatches.length})</button>
+            <button type="button" onClick={() => handleTabChange('desk')} className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${activeTab === 'desk' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><Clock className="w-3.5 h-3.5" /> Desk</button>
+            <button type="button" onClick={() => handleTabChange('stats')} className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${activeTab === 'stats' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><BarChart3 className="w-3.5 h-3.5" /> Standings</button>
+            <button type="button" onClick={() => handleTabChange('leaderboard')} className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${activeTab === 'leaderboard' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><Award className="w-3.5 h-3.5 text-amber-400" /> Hero Cards</button>
+            <button type="button" onClick={() => handleTabChange('report')} className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${activeTab === 'report' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`}><FileText className="w-3.5 h-3.5" /> Report {activeMatch.status !== 'Final' && <Lock className="w-3 h-3 text-slate-500" />}</button>
             {isCommissioner && (
-              <button type="button" onClick={() => handleTabChange('generator')} className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${activeTab === 'generator' ? 'bg-blue-600 text-white shadow-md' : 'text-amber-400 hover:text-white'}`}>
-                <KeyRound className="w-3.5 h-3.5" /> Game Tokens
-              </button>
+              <button type="button" onClick={() => handleTabChange('generator')} className={`px-2.5 py-1.5 text-xs font-bold rounded-lg transition cursor-pointer flex items-center gap-1 whitespace-nowrap ${activeTab === 'generator' ? 'bg-blue-600 text-white shadow-md' : 'text-amber-400 hover:text-white'}`}><KeyRound className="w-3.5 h-3.5" /> Game Tokens</button>
             )}
           </nav>
 
           <div className="flex items-center gap-1.5 justify-end w-full md:w-auto flex-wrap">
             <HeaderActionCluster isCommissioner={isCommissioner} />
-
-            <div className={`px-2.5 py-1 text-[11px] font-black uppercase rounded-lg border ${
-              currentTier === 'pro' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' :
-              currentTier === 'essential' ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' :
-              currentTier === 'basic' ? 'bg-slate-800 text-slate-300 border-slate-700' :
-              'bg-zinc-800 text-zinc-400 border-zinc-700'
-            }`}>
-              Plan: {currentTier}
-            </div>
-
-            <button type="button" onClick={() => setShowUpgradeModal(true)} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-2.5 py-1.5 text-[11px] rounded-lg flex items-center gap-1 cursor-pointer shadow transition" title="Upgrade Subscription">
-              <Zap className="w-3.5 h-3.5" /> Upgrade Tiers
-            </button>
-
+            <div className={`px-2.5 py-1 text-[11px] font-black uppercase rounded-lg border ${currentTier === 'pro' ? 'bg-amber-500/10 text-amber-400 border-amber-500/30' : currentTier === 'essential' ? 'bg-blue-500/10 text-blue-400 border-blue-500/30' : currentTier === 'basic' ? 'bg-slate-800 text-slate-300 border-slate-700' : 'bg-zinc-800 text-zinc-400 border-zinc-700'}`}>Plan: {currentTier}</div>
+            <button type="button" onClick={() => setShowUpgradeModal(true)} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-2.5 py-1.5 text-[11px] rounded-lg flex items-center gap-1 cursor-pointer shadow transition" title="Upgrade Subscription"><Zap className="w-3.5 h-3.5" /> Upgrade Tiers</button>
             {isCommissioner && (
               <>
-                <button
-                  type="button"
-                  onClick={() => setIsBrandingModalOpen(true)}
-                  className="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 px-2.5 py-1.5 text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-pointer transition shadow"
-                  title="Custom League White-Labeling"
-                >
-                  <Palette className="w-3.5 h-3.5" /> Brand
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleTabChange('register')}
-                  className={`px-2.5 py-1.5 text-[11px] font-bold rounded-lg border flex items-center gap-1 transition cursor-pointer shadow ${activeTab === 'register' ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-800 hover:bg-slate-700 text-emerald-400 border-slate-700'}`}
-                  title="Open Public Team Registration Link"
-                >
-                  <Users className="w-3.5 h-3.5" /> Registration Link
-                </button>
+                <button type="button" onClick={() => setIsBrandingModalOpen(true)} className="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 px-2.5 py-1.5 text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-pointer transition shadow" title="Custom League White-Labeling"><Palette className="w-3.5 h-3.5" /> Brand</button>
+                <button type="button" onClick={() => handleTabChange('register')} className={`px-2.5 py-1.5 text-[11px] font-bold rounded-lg border flex items-center gap-1 transition cursor-pointer shadow ${activeTab === 'register' ? 'bg-blue-600 text-white border-blue-500' : 'bg-slate-800 hover:bg-slate-700 text-emerald-400 border-slate-700'}`} title="Open Public Team Registration Link"><Users className="w-3.5 h-3.5" /> Registration Link</button>
               </>
             )}
-
-            <button type="button" onClick={() => setIsSpectatorMode(true)} className="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 px-2.5 py-1.5 text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-pointer" title="Fullscreen Arena Display">
-              <Monitor className="w-3.5 h-3.5" /> TV Mode
-            </button>
+            <button type="button" onClick={() => setIsSpectatorMode(true)} className="bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 px-2.5 py-1.5 text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-pointer" title="Fullscreen Arena Display"><Monitor className="w-3.5 h-3.5" /> TV Mode</button>
             {isCommissioner && (
               <>
-                <button type="button" onClick={exportTournamentData} className="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-2.5 py-1.5 text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-pointer" title="Export Backup JSON">
-                  <Download className="w-3.5 h-3.5" /> Export
-                </button>
-                <label className="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-2.5 py-1.5 text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-pointer">
-                  <Upload className="w-3.5 h-3.5" /> Import
-                  <input type="file" accept=".json" onChange={importTournamentData} className="hidden" />
-                </label>
+                <button type="button" onClick={exportTournamentData} className="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-2.5 py-1.5 text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-pointer" title="Export Backup JSON"><Download className="w-3.5 h-3.5" /> Export</button>
+                <label className="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-2.5 py-1.5 text-[11px] font-bold rounded-lg flex items-center gap-1 cursor-pointer"><Upload className="w-3.5 h-3.5" /> Import<input type="file" accept=".json" onChange={importTournamentData} className="hidden" /></label>
               </>
             )}
             {currentUser && (
-              <button type="button" onClick={() => setIsAccountModalOpen(true)} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 cursor-pointer" title="Account Settings & RBAC">
-                <UserCog className="w-4 h-4 text-blue-400" />
-              </button>
+              <button type="button" onClick={() => setIsAccountModalOpen(true)} className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 cursor-pointer" title="Account Settings & RBAC"><UserCog className="w-4 h-4 text-blue-400" /></button>
             )}
-            <button type="button" onClick={handleLogout} className="p-2 bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-900/50 rounded-lg cursor-pointer transition" title="Log Out">
-              <LogOut className="w-4 h-4" />
-            </button>
+            <button type="button" onClick={handleLogout} className="p-2 bg-red-950/40 hover:bg-red-900/60 text-red-400 border border-red-900/50 rounded-lg cursor-pointer transition" title="Log Out"><LogOut className="w-4 h-4" /></button>
           </div>
         </div>
       </header>
 
-      {/* Main Viewport */}
       <main className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 flex-1 w-full print:p-0 print:max-w-none">
-        
         {activeTab === 'generator' && isCommissioner && (
           <div className="space-y-6 print:hidden">
             <CommissionerGameGenerator orgId={activeSession.id} />
@@ -1043,24 +897,9 @@ export default function App() {
                 <h2 className="text-sm font-black text-white uppercase">Public Registration Portal Preview</h2>
                 <p className="text-xs text-slate-400">Share this view or URL with team captains to let them self-register.</p>
               </div>
-              <button
-                type="button"
-                onClick={() => handleTabChange('roster')}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition cursor-pointer"
-              >
-                Back to Dashboard
-              </button>
+              <button type="button" onClick={() => handleTabChange('roster')} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition cursor-pointer">Back to Dashboard</button>
             </div>
-
-            <PublicTeamRegistration
-              sessionId={activeSession.id}
-              leagueName={leagueBranding.leagueName}
-              onTeamRegistered={async (newTeam) => {
-                setTeams((prev) => [...prev, newTeam]);
-                setActiveTab('roster');
-                alert(`Team "${newTeam.name}" successfully registered and added to your roster!`);
-              }}
-            />
+            <PublicTeamRegistration sessionId={activeSession.id} leagueName={leagueBranding.leagueName} onTeamRegistered={async (newTeam) => { setTeams((prev) => [...prev, newTeam]); setActiveTab('roster'); alert(`Team "${newTeam.name}" successfully registered!`); }} />
           </div>
         )}
 
@@ -1071,22 +910,16 @@ export default function App() {
                 <h2 className="text-xl font-black text-white uppercase tracking-tight">Official Tournament Franchises</h2>
                 <p className="text-xs text-slate-400">Showing franchises for <strong className="text-amber-400 uppercase">{selectedSportTab}</strong> in {leagueBranding.leagueName}</p>
               </div>
-
               <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl gap-1 overflow-x-auto max-w-full">
                 {(['basketball', 'volleyball', 'badminton'] as SportType[]).map((sport) => {
                   const sportCount = teams.filter((t) => (t.sportType || 'basketball') === sport).length;
                   return (
-                    <button key={sport} type="button" onClick={() => setSelectedSportTab(sport)} className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition cursor-pointer whitespace-nowrap ${selectedSportTab === sport ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>
-                      {sport} ({sportCount})
-                    </button>
+                    <button key={sport} type="button" onClick={() => setSelectedSportTab(sport)} className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition cursor-pointer whitespace-nowrap ${selectedSportTab === sport ? 'bg-blue-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>{sport} ({sportCount})</button>
                   );
                 })}
               </div>
-
               {isCommissioner && (
-                <button type="button" onClick={() => { setEditingTeam(null); setIsTeamModalOpen(true); }} className="bg-blue-600 hover:bg-blue-500 text-white font-black px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-lg cursor-pointer">
-                  <Plus className="w-4 h-4" /> Enter Official Team
-                </button>
+                <button type="button" onClick={() => { setEditingTeam(null); setIsTeamModalOpen(true); }} className="bg-blue-600 hover:bg-blue-500 text-white font-black px-4 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-lg cursor-pointer"><Plus className="w-4 h-4" /> Enter Official Team</button>
               )}
             </div>
 
@@ -1095,9 +928,7 @@ export default function App() {
                 <div className="w-16 h-16 bg-blue-600/10 border border-blue-500/20 rounded-full flex items-center justify-center mx-auto text-blue-400"><Users className="w-8 h-8" /></div>
                 <h3 className="text-base font-bold text-white capitalize">No {selectedSportTab} Teams Registered Yet</h3>
                 {isCommissioner && (
-                  <button type="button" onClick={() => { setEditingTeam(null); setIsTeamModalOpen(true); }} className="bg-blue-600 hover:bg-blue-500 text-white font-black px-5 py-2.5 rounded-xl text-xs inline-flex items-center gap-2 cursor-pointer shadow-lg capitalize">
-                    <Plus className="w-4 h-4" /> Add {selectedSportTab} Team
-                  </button>
+                  <button type="button" onClick={() => { setEditingTeam(null); setIsTeamModalOpen(true); }} className="bg-blue-600 hover:bg-blue-500 text-white font-black px-5 py-2.5 rounded-xl text-xs inline-flex items-center gap-2 cursor-pointer shadow-lg capitalize"><Plus className="w-4 h-4" /> Add {selectedSportTab} Team</button>
                 )}
               </div>
             ) : (
@@ -1115,7 +946,6 @@ export default function App() {
                           <p className="text-xs text-slate-400">Coach: <span className="text-white font-semibold">{team.coachName || 'Staff'}</span> • {team.players.length} Players</p>
                         </div>
                       </div>
-
                       {isCommissioner && (
                         <div className="flex items-center gap-2">
                           <button type="button" onClick={() => { setEditingTeam(team); setIsTeamModalOpen(true); }} className="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1 cursor-pointer"><Edit3 className="w-3.5 h-3.5 text-blue-400" /> Edit</button>
@@ -1123,7 +953,6 @@ export default function App() {
                         </div>
                       )}
                     </div>
-
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                       {team.players.map((player) => (
                         <div key={player.id} className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-col justify-between text-center space-y-3">
@@ -1162,30 +991,16 @@ export default function App() {
                 <p className="text-xs text-slate-400">Auto-generate conflict-free schedules or queue individual matchups</p>
               </div>
             </div>
-
             {isCommissioner && (
-              <SmartScheduleGenerator
-                teams={teams}
-                sessionId={activeSession.id}
-                sportType={selectedSportTab}
-                onScheduleGenerated={async (newMatches) => {
-                  setScheduledMatches((prev) => [...prev, ...newMatches]);
-                  for (const m of newMatches) {
-                    await supabase.from('scheduled_matches').upsert({
-                      id: m.id,
-                      org_id: activeSession.id,
-                      sport_type: m.sportType,
-                      team_a_id: m.teamAId,
-                      team_b_id: m.teamBId,
-                      time_slot: m.timeSlot,
-                      status: m.status,
-                      updated_at: new Date().toISOString()
-                    });
-                  }
-                }}
-              />
+              <SmartScheduleGenerator teams={teams} sessionId={activeSession.id} sportType={selectedSportTab} onScheduleGenerated={async (newMatches) => {
+                setScheduledMatches((prev) => [...prev, ...newMatches]);
+                for (const m of newMatches) {
+                  await supabase.from('scheduled_matches').upsert({
+                    id: m.id, org_id: activeSession.id, sport_type: m.sportType, team_a_id: m.teamAId, team_b_id: m.teamBId, time_slot: m.timeSlot, status: m.status, updated_at: new Date().toISOString()
+                  });
+                }
+              }} />
             )}
-
             {scheduledMatches.length === 0 ? (
               <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-8 text-center text-xs text-slate-400">No matches scheduled yet.</div>
             ) : (
@@ -1203,12 +1018,10 @@ export default function App() {
                         </div>
                         <h4 className="text-sm font-bold text-white mt-2">{tA.name} <span className="text-slate-500 font-normal">vs</span> {tB.name}</h4>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <button type="button" onClick={() => {
-                          setActiveMatch((prev) => ({ ...prev, id: m.id, sessionId: activeSession.id, sportType: m.sportType, teamAId: m.teamAId, teamBId: m.teamBId, scoreA: 0, scoreB: 0, setsA: 0, setsB: 0, currentSet: 1, history: [], logs: [], quarter: 'Q1', status: 'Live', teamAFouls: 0, teamBFouls: 0, stats: {} }));
-                          handleTabChange('desk');
-                        }} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-2 rounded-xl text-xs cursor-pointer shadow whitespace-nowrap">Load to Desk</button>
-                      </div>
+                      <button type="button" onClick={() => {
+                        setActiveMatch((prev) => ({ ...prev, id: m.id, sessionId: activeSession.id, sportType: m.sportType, teamAId: m.teamAId, teamBId: m.teamBId, scoreA: 0, scoreB: 0, setsA: 0, setsB: 0, currentSet: 1, history: [], logs: [], quarter: 'Q1', status: 'Live', teamAFouls: 0, teamBFouls: 0, stats: {} }));
+                        handleTabChange('desk');
+                      }} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3 py-2 rounded-xl text-xs cursor-pointer shadow whitespace-nowrap">Load to Desk</button>
                     </div>
                   );
                 })}
@@ -1243,20 +1056,8 @@ export default function App() {
                 {!isViewer && (
                   <div className="flex items-center gap-3 bg-slate-900 border border-slate-800 p-3 rounded-2xl shadow-md">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Player Verification:</span>
-                    <button
-                      type="button"
-                      onClick={() => setIsLivenessModalOpen(true)}
-                      className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow"
-                    >
-                      <Camera className="w-3.5 h-3.5" /> Face Liveness Scanner
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsQrScannerOpen(true)}
-                      className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow"
-                    >
-                      <QrCode className="w-3.5 h-3.5" /> QR Pass Scanner
-                    </button>
+                    <button type="button" onClick={() => setIsLivenessModalOpen(true)} className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow"><Camera className="w-3.5 h-3.5" /> Face Liveness Scanner</button>
+                    <button type="button" onClick={() => setIsQrScannerOpen(true)} className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 transition cursor-pointer shadow"><QrCode className="w-3.5 h-3.5" /> QR Pass Scanner</button>
                   </div>
                 )}
 
@@ -1269,7 +1070,6 @@ export default function App() {
                         <p className="text-xs text-slate-400">Coach: {teamA.coachName || 'Staff'}</p>
                       </div>
 
-                      {/* Scoreboard and Clocks Cluster */}
                       <div className="flex flex-col items-center bg-slate-950 px-6 sm:px-8 py-4 rounded-2xl border border-slate-800 shadow-inner w-full lg:w-auto space-y-3">
                         <span className="text-xs text-amber-400 font-black uppercase tracking-wider text-center">{currentSportConfig.name} • {activeMatch.court} • {activeMatch.status}</span>
                         <div className="flex items-center gap-6 sm:gap-8">
@@ -1284,42 +1084,22 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* Clocks & Shot Clock Reset Controls */}
                         <div className="flex flex-wrap items-center justify-center gap-4 pt-3 border-t border-slate-800/80 w-full text-xs">
-                          {/* Game Clock */}
                           <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
                             <Clock className="w-4 h-4 text-slate-400" />
                             <span className="font-mono text-lg font-black text-white">{formatTime(gameSeconds)}</span>
                             {!isViewer && activeMatch.status !== 'Final' && (
-                              <button type="button" onClick={() => setIsClockRunning((prev) => !prev)} className={`p-1.5 rounded-lg text-slate-950 font-bold cursor-pointer transition ${isClockRunning ? 'bg-amber-400' : 'bg-emerald-400'}`}>
-                                {isClockRunning ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                              </button>
+                              <button type="button" onClick={() => setIsClockRunning((prev) => !prev)} className={`p-1.5 rounded-lg text-slate-950 font-bold cursor-pointer transition ${isClockRunning ? 'bg-amber-400' : 'bg-emerald-400'}`}>{isClockRunning ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}</button>
                             )}
                           </div>
 
-                          {/* Shot Clock with Reset Buttons */}
                           <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
                             <span className="text-[10px] font-bold text-amber-400 uppercase">Shot:</span>
                             <span className="font-mono text-lg font-black text-amber-400 w-8 text-center">{shotClock}s</span>
-                            
                             {!isViewer && activeMatch.status !== 'Final' && (
                               <div className="flex items-center gap-1 pl-1 border-l border-slate-800">
-                                <button
-                                  type="button"
-                                  onClick={() => setShotClock(gameSettings.shotClockSeconds)}
-                                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded text-[10px] cursor-pointer"
-                                  title="Reset Shot Clock to 24s"
-                                >
-                                  24
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setShotClock(gameSettings.offensiveReboundShotClock || 14)}
-                                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded text-[10px] cursor-pointer"
-                                  title="Reset Shot Clock to 14s"
-                                >
-                                  14
-                                </button>
+                                <button type="button" onClick={() => setShotClock(gameSettings.shotClockSeconds)} className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded text-[10px] cursor-pointer" title="Reset Shot Clock to 24s">24</button>
+                                <button type="button" onClick={() => setShotClock(gameSettings.offensiveReboundShotClock || 14)} className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded text-[10px] cursor-pointer" title="Reset Shot Clock to 14s">14</button>
                               </div>
                             )}
                           </div>
@@ -1339,12 +1119,9 @@ export default function App() {
                         <button type="button" disabled={isViewer} onClick={() => arenaAudio.playWhistle()} className="px-2.5 py-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-30 disabled:cursor-not-allowed text-slate-200 rounded font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap"><Volume2 className="w-3 h-3" /> Whistle</button>
                         <button type="button" disabled={isViewer} onClick={() => arenaAudio.playArenaBuzzer()} className="px-2.5 py-1 bg-red-900/60 hover:bg-red-800 disabled:opacity-30 disabled:cursor-not-allowed text-red-200 rounded font-bold flex items-center gap-1 cursor-pointer whitespace-nowrap"><Volume2 className="w-3 h-3" /> Buzzer</button>
                       </div>
-
-                      <div className="flex items-center gap-3 flex-wrap">
+                      <div>
                         {!isViewer && activeMatch.status !== 'Final' ? (
-                          <button type="button" onClick={handleAttemptFinalizeMatch} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow transition cursor-pointer">
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Finalize Match
-                          </button>
+                          <button type="button" onClick={handleAttemptFinalizeMatch} className="bg-emerald-600 hover:bg-emerald-500 text-white font-black px-3.5 py-1.5 rounded-xl text-xs flex items-center gap-1.5 shadow transition cursor-pointer"><CheckCircle2 className="w-3.5 h-3.5" /> Finalize Match</button>
                         ) : (
                           <span className="px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-black uppercase tracking-wider">Match Finalized</span>
                         )}
@@ -1358,12 +1135,9 @@ export default function App() {
                     {[{ t: teamA, key: 'A' as const, color: 'text-amber-400' }, { t: teamB, key: 'B' as const, color: 'text-cyan-400' }].map(({ t, key, color }) => (
                       <div key={t.id} className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
                         <div className="bg-slate-800/80 px-4 py-3 border-b border-slate-700 flex justify-between items-center">
-                          <div>
-                            <h3 className={`font-black text-sm ${color}`}>{t.name}</h3>
-                          </div>
+                          <h3 className={`font-black text-sm ${color}`}>{t.name}</h3>
                           <span className="text-xs text-slate-300 font-mono bg-slate-900 px-2 py-0.5 rounded border border-slate-700 whitespace-nowrap">{t.players.filter((p) => activeMatch.stats[String(p.id)]?.isCheckedIn).length} / {t.players.length} Active</span>
                         </div>
-
                         <div className="overflow-x-auto">
                           <table className="w-full text-left text-xs whitespace-nowrap">
                             <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase font-bold border-b border-slate-800">
@@ -1383,17 +1157,13 @@ export default function App() {
                                   <tr key={p.id} className={!st.isCheckedIn ? 'opacity-45 bg-slate-950/40' : 'hover:bg-slate-800/30'}>
                                     <td className={`p-3 font-mono font-bold ${color}`}>#{p.jersey}</td>
                                     <td className="p-3">
-                                      <button type="button" onClick={() => setSelectedPlayer(p)} className="font-semibold text-white hover:underline cursor-pointer flex items-center gap-1.5">
-                                        {p.name} {p.descriptor && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />}
-                                      </button>
+                                      <button type="button" onClick={() => setSelectedPlayer(p)} className="font-semibold text-white hover:underline cursor-pointer flex items-center gap-1.5">{p.name} {p.descriptor && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />}</button>
                                     </td>
                                     <td className="p-3 text-center">
                                       {st.isCheckedIn ? <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-bold"><CheckCircle2 className="w-3 h-3" /> Ready</span> : <span className="inline-flex items-center gap-1 text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded font-bold"><AlertCircle className="w-3 h-3" /> Locked</span>}
                                     </td>
                                     <td className="p-3 text-center">
-                                      <button type="button" disabled={isViewer || !st.isCheckedIn || activeMatch.status === 'Final'} onClick={() => togglePlayerOnCourt(p.id)} className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition ${st.isOnCourt ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'} disabled:opacity-50`}>
-                                        {st.isOnCourt ? 'On Court' : 'Bench'}
-                                      </button>
+                                      <button type="button" disabled={isViewer || !st.isCheckedIn || activeMatch.status === 'Final'} onClick={() => togglePlayerOnCourt(p.id)} className={`px-2 py-0.5 rounded text-[10px] font-bold cursor-pointer transition ${st.isOnCourt ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400'} disabled:opacity-50`}>{st.isOnCourt ? 'On Court' : 'Bench'}</button>
                                     </td>
                                     <td className="p-3 text-center font-bold text-white text-sm">{st.points}</td>
                                     {!isViewer && (
@@ -1491,74 +1261,44 @@ export default function App() {
       {currentUser && <AccountManagerModal isOpen={isAccountModalOpen} onClose={() => setIsAccountModalOpen(false)} currentUser={currentUser} onUserUpdated={(updated) => setCurrentUser(updated)} />}
       <LeagueBrandingModal isOpen={isBrandingModalOpen} onClose={() => setIsBrandingModalOpen(false)} sessionId={activeSession.id} currentBranding={leagueBranding} onSaveBranding={(updated) => setLeagueBranding(updated)} />
 
-      {/* Tier Upgrade / PayMongo Modal */}
       {showUpgradeModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 print:hidden">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 text-white shadow-2xl">
             <div className="text-center mb-6">
               <h3 className="text-2xl font-bold text-amber-400">Match Limit Reached! 🚨</h3>
-              <p className="text-slate-400 text-sm mt-1">
-                You have reached the maximum allowed matches for your current plan. Choose a tier to unlock instant access and keep your tournament running.
-              </p>
+              <p className="text-slate-400 text-sm mt-1">You have reached the maximum allowed matches for your current plan. Choose a tier to unlock instant access and keep your tournament running.</p>
             </div>
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              {/* Basic Tier */}
               <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 flex flex-col justify-between">
                 <div>
                   <h4 className="font-bold text-lg text-slate-200">Basic</h4>
                   <div className="text-2xl font-extrabold text-white mt-1">₱199</div>
                   <p className="text-xs text-slate-400 mt-2">Up to 10 matches. Perfect for single-day local games.</p>
                 </div>
-                <button 
-                  onClick={() => handleSelectTier('basic')}
-                  className="mt-4 w-full bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 rounded-xl text-sm transition cursor-pointer"
-                >
-                  Choose Basic
-                </button>
+                <button onClick={() => handleSelectTier('basic')} className="mt-4 w-full bg-slate-700 hover:bg-slate-600 text-white font-medium py-2 rounded-xl text-sm transition cursor-pointer">Choose Basic</button>
               </div>
 
-              {/* Essential Tier */}
               <div className="bg-slate-800/60 border border-slate-700 rounded-xl p-4 flex flex-col justify-between">
                 <div>
                   <h4 className="font-bold text-lg text-blue-400">Essential</h4>
                   <div className="text-2xl font-extrabold text-white mt-1">₱299</div>
                   <p className="text-xs text-slate-400 mt-2">Up to 30 matches. Great for weekend sportsfests.</p>
                 </div>
-                <button 
-                  onClick={() => handleSelectTier('essential')}
-                  className="mt-4 w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-xl text-sm transition cursor-pointer"
-                >
-                  Choose Essential
-                </button>
+                <button onClick={() => handleSelectTier('essential')} className="mt-4 w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-xl text-sm transition cursor-pointer">Choose Essential</button>
               </div>
 
-              {/* Pro Tier */}
               <div className="bg-gradient-to-b from-amber-500/20 to-slate-800/60 border border-amber-500/50 rounded-xl p-4 flex flex-col justify-between relative">
-                <span className="absolute -top-3 right-4 bg-amber-500 text-slate-950 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                  Best Value
-                </span>
+                <span className="absolute -top-3 right-4 bg-amber-500 text-slate-950 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Best Value</span>
                 <div>
                   <h4 className="font-bold text-lg text-amber-400">Pro</h4>
                   <div className="text-2xl font-extrabold text-white mt-1">₱399</div>
                   <p className="text-xs text-slate-400 mt-2">Unlimited matches, cloud sync, and live TV projection mode.</p>
                 </div>
-                <button 
-                  onClick={() => handleSelectTier('pro')}
-                  className="mt-4 w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded-lg text-sm transition shadow-lg shadow-amber-500/20 cursor-pointer"
-                >
-                  Choose Pro
-                </button>
+                <button onClick={() => handleSelectTier('pro')} className="mt-4 w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-2 rounded-lg text-sm transition shadow-lg shadow-amber-500/20 cursor-pointer">Choose Pro</button>
               </div>
             </div>
-
             <div className="text-center">
-              <button 
-                onClick={() => setShowUpgradeModal(false)}
-                className="text-xs text-slate-400 hover:text-white underline transition cursor-pointer"
-              >
-                Cancel / Close
-              </button>
+              <button onClick={() => setShowUpgradeModal(false)} className="text-xs text-slate-400 hover:text-white underline transition cursor-pointer">Cancel / Close</button>
             </div>
           </div>
         </div>
