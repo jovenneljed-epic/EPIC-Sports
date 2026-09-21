@@ -145,7 +145,7 @@ export interface ScheduledMatch {
 const DEFAULT_SETTINGS: GameSettings = {
   quarterMinutes: 12,
   shotClockSeconds: 24,
-  offensiveReboundShotClock: 14,
+  offensiveReboundShotClock: 24,
   foulDisqualificationLimit: 6,
   courtName: 'EPIC Sports Championship Arena',
 };
@@ -598,7 +598,7 @@ export default function App() {
       setShotClock((prev) => {
         if (prev <= 1) {
           arenaAudio.playArenaBuzzer();
-          return 14; 
+          return 24; // Automatically reset to 24 when shot clock buzzer triggers
         }
         return prev - 1;
       });
@@ -655,6 +655,9 @@ export default function App() {
       return;
     }
 
+    // Automatically reset shot clock to 24s whenever a player scores
+    setShotClock(24);
+
     setActiveMatch((prev) => {
       if (prev.status === 'Final') return prev;
       const idKey = String(playerId).trim();
@@ -667,7 +670,6 @@ export default function App() {
       if (st.isFouledOut) return prev;
 
       arenaAudio.playSwish();
-      setShotClock(gameSettings.shotClockSeconds);
 
       const teamName = (teamKey === 'A' ? teams.find(t => t.id === prev.teamAId)?.name : teams.find(t => t.id === prev.teamBId)?.name) || 'Team';
       const logEntry: PlayLog = {
@@ -693,7 +695,7 @@ export default function App() {
         },
       };
     });
-  }, [currentUser, gameSettings, teams]);
+  }, [currentUser, teams]);
 
   const handleFoul = useCallback((playerId: string, teamKey: 'A' | 'B') => {
     if (currentUser?.role === 'viewer') return;
@@ -1098,8 +1100,7 @@ export default function App() {
                             <span className="font-mono text-lg font-black text-amber-400 w-8 text-center">{shotClock}s</span>
                             {!isViewer && activeMatch.status !== 'Final' && (
                               <div className="flex items-center gap-1 pl-1 border-l border-slate-800">
-                                <button type="button" onClick={() => setShotClock(gameSettings.shotClockSeconds)} className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded text-[10px] cursor-pointer" title="Reset Shot Clock to 24s">24</button>
-                                <button type="button" onClick={() => setShotClock(gameSettings.offensiveReboundShotClock || 14)} className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded text-[10px] cursor-pointer" title="Reset Shot Clock to 14s">14</button>
+                                <button type="button" onClick={() => setShotClock(24)} className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded text-[10px] cursor-pointer" title="Reset Shot Clock to 24s">24</button>
                               </div>
                             )}
                           </div>
