@@ -363,11 +363,9 @@ export default function App() {
   }, [activeMatch.id]);
 
   const handleTabChange = (newTab: NavTab) => {
-    if (activeTab === 'desk' && activeMatch.status === 'Live') {
-      const confirmLeave = window.confirm(
-        '⚠️ MATCH IS CURRENTLY LIVE!\n\nAre you sure you want to leave the Scorer Desk? Your live scores are auto-saved to Supabase per match ID.'
-      );
-      if (!confirmLeave) return;
+    if (activeTab === 'desk' && activeMatch.status === 'Live' && newTab !== 'desk') {
+      alert('⚠️ MATCH IS CURRENTLY LIVE!\n\nYou cannot leave the Scorer Desk until the match is declared FINAL.');
+      return;
     }
     setActiveTab(newTab);
   };
@@ -1091,7 +1089,6 @@ export default function App() {
               </div>
             ) : (
               <>
-                {/* MATCHUP HEADER BAR WITH LOCKOUT */}
                 <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800 text-xs shadow-md">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Matchup:</span>
@@ -1130,13 +1127,11 @@ export default function App() {
                         <p className="text-xs text-slate-400 mt-1">Coach: {teamA.coachName || 'Staff'}</p>
                       </div>
 
-                      {/* ENLARGED SCOREBOARD & CLOCKS DISPLAY */}
                       <div className="flex flex-col items-center bg-slate-950 px-8 sm:px-12 py-6 rounded-3xl border-2 border-slate-800 shadow-2xl w-full lg:w-auto space-y-4">
                         <span className="text-sm text-amber-400 font-black uppercase tracking-widest text-center">
                           {currentSportConfig.name} • {activeMatch.court} • <span className="text-emerald-400">{activeMatch.status}</span>
                         </span>
                         
-                        {/* Score Numbers Made Massive */}
                         <div className="flex items-center gap-8 sm:gap-12">
                           <div className="text-center">
                             <span className="text-xs text-slate-500 uppercase tracking-widest block font-bold mb-1">Home</span>
@@ -1149,9 +1144,7 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* Clocks & Shot Clock Reset Controls Made Prominent */}
                         <div className="flex flex-wrap items-center justify-center gap-6 pt-4 border-t border-slate-800 w-full">
-                          {/* Game Clock with Strict Attendance Lockout State */}
                           <div className="flex items-center gap-3 bg-slate-900 px-5 py-2.5 rounded-2xl border border-slate-800 shadow-inner">
                             <Clock className="w-5 h-5 text-amber-400" />
                             <span className="font-mono text-3xl sm:text-4xl font-black text-white tracking-wider">{formatTime(gameSeconds)}</span>
@@ -1182,7 +1175,6 @@ export default function App() {
                             })()}
                           </div>
 
-                          {/* Shot Clock */}
                           <div className="flex items-center gap-3 bg-slate-900 px-5 py-2.5 rounded-2xl border border-slate-800 shadow-inner">
                             <span className="text-xs font-black text-amber-400 uppercase tracking-wider">Shot Clock:</span>
                             <span className={`font-mono text-3xl sm:text-4xl font-black w-14 text-center tracking-wider ${shotClock <= 5 ? 'text-red-400 animate-pulse' : 'text-amber-400'}`}>
