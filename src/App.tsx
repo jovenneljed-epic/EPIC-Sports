@@ -675,7 +675,6 @@ export default function App() {
       return;
     }
 
-    // Automatically reset shot clock to 24s whenever a player scores
     setShotClock(24);
 
     setActiveMatch((prev) => {
@@ -717,8 +716,13 @@ export default function App() {
     });
   }, [currentUser, teams]);
 
+  // Foul Rule: Automatically stops game time and resets shot clock to 24s
   const handleFoul = useCallback((playerId: string, teamKey: 'A' | 'B') => {
     if (currentUser?.role === 'viewer') return;
+
+    setIsClockRunning(false);
+    setShotClock(24);
+
     setActiveMatch((prev) => {
       if (prev.status === 'Final') return prev;
       const idKey = String(playerId).trim();
