@@ -22,7 +22,7 @@ import {
   CheckCircle2, Camera, UserCheck, AlertCircle, 
   BarChart3, Plus, Users, Award, Edit3, 
   Trash2, LogOut, UserCog, FileText, Calendar, 
-  Lock, Download, Upload, Monitor, Zap, Palette, QrCode, KeyRound, Printer, ArrowLeftRight, ShieldAlert
+  Lock, Download, Upload, Monitor, Zap, Palette, QrCode, KeyRound, Printer, ArrowLeftRight, ShieldAlert, AlertTriangle
 } from 'lucide-react';
 
 // --- Domain Models ---
@@ -746,7 +746,7 @@ export default function App() {
     });
   }, [currentUser, teams]);
 
-  // Foul Rule: Automatically stops game time and resets shot clock to 24s
+  // Foul Rule with Automatic Penalty Check (5 fouls threshold)
   const handleFoul = useCallback((playerId: string, teamKey: 'A' | 'B') => {
     if (currentUser?.role === 'viewer') return;
 
@@ -762,6 +762,7 @@ export default function App() {
       arenaAudio.playWhistle();
       const nextFouls = st.fouls + 1;
       const fouledOut = nextFouls >= gameSettings.foulDisqualificationLimit;
+      
       const nextTeamAFouls = teamKey === 'A' ? prev.teamAFouls + 1 : prev.teamAFouls;
       const nextTeamBFouls = teamKey === 'B' ? prev.teamBFouls + 1 : prev.teamBFouls;
 
@@ -769,21 +770,38 @@ export default function App() {
       const playerObj = targetTeam?.players.find(p => String(p.id) === idKey);
       const playerName = playerObj ? playerObj.name : 'Player';
 
-      const logEntry: PlayLog = {
-        id: `log_${Date.now()}`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        description: `Personal foul called on ${playerName} (${nextFouls} foul${nextFouls > 1 ? 's' : ''})`,
-      };
+      const newLogs: PlayLog[] = [
+        {
+          id: `log_${Date.now()}`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          description: `Personal foul called on ${playerName} (${nextFouls} foul${nextFouls > 1 ? 's' : ''})`,
+        },
+        ...(prev.logs || [])
+      ];
+
+      // Automatic Penalty Notification if team reaches 5 fouls
+      const isTeamAPenalty = teamKey === 'A' && nextTeamAFouls === 5;
+      const isTeamBPenalty = teamKey === 'B' && nextTeamBFouls === 5;
+
+      if (isTeamAPenalty || isTeamBPenalty) {
+        const offendingTeamName = teamKey === 'A' ? teamA?.name : teamB?.name;
+        newLogs.unshift({
+          id: `log_penalty_${Date.now()}`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+          description: `🚨 PENALTY / BONUS: ${offendingTeamName} reached 5 team fouls! Opponent enters the bonus.`,
+        });
+        speakAnnouncement(`${offendingTeamName} is in the penalty!`);
+      }
 
       return {
         ...prev,
         teamAFouls: nextTeamAFouls,
         teamBFouls: nextTeamBFouls,
-        logs: [logEntry, ...(prev.logs || [])],
+        logs: newLogs,
         stats: { ...prev.stats, [idKey]: { ...st, fouls: nextFouls, isFouledOut: fouledOut } },
       };
     });
-  }, [currentUser, gameSettings, teams]);
+  }, [currentUser, gameSettings, teams, teamA, teamB]);
 
   // Timeout call handler
   const handleCallTimeout = (teamKey: 'A' | 'B') => {
@@ -813,6 +831,31 @@ export default function App() {
         logs: [logEntry, ...(prev.logs || [])],
       };
     });
+  };
+
+  // Quarter Changer (Q1 -> Q2 -> Q3 -> Q4 -> OT -> Final)
+  const handleAdvanceQuarter = () => {
+    setActiveMatch((prev) => {
+      const qSequence: Quarter[] = ['Q1', 'Q2', 'Q3', 'Q4', 'OT', 'Final'];
+      const currentIndex = qSequence.indexOf(prev.quarter);
+      const nextQuarter = currentIndex < qSequence.length - 1 ? qSequence[currentIndex + 1] : 'Final';
+
+      const logEntry: PlayLog = {
+        id: `log_${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+        description: `Period transitioned to ${nextQuarter}`,
+      };
+
+      return {
+        ...prev,
+        quarter: nextQuarter,
+        teamAFouls: 0, // Reset team fouls per quarter
+        teamBFouls: 0,
+        logs: [logEntry, ...(prev.logs || [])],
+      };
+    });
+    setGameSeconds(gameSettings.quarterMinutes * 60);
+    setShotClock(gameSettings.shotClockSeconds);
   };
 
   const handleSaveTeam = async (teamData: Team) => {
@@ -1164,7 +1207,15 @@ export default function App() {
                     {/* WINNER BANNER ALERT IF FINAL */}
                     {activeMatch.status === 'Final' && (
                       <div className="bg-gradient-to-r from-amber-500 via-amber-400 to-yellow-500 text-slate-950 p-4 rounded-2xl text-center shadow-xl font-black text-xl uppercase tracking-wider animate-bounce">
-                        🏆 {activeMatch.scoreA > activeMatch.scoreB ? teamA.name : activeMatch.scoreB > activeMatch.scoreA ? teamB.name : 'Match Tied'} Wins! 🏆
+                        🏆 Team {activeMatch.scoreA > activeMatch.scoreB ? teamA.name : activeMatch.scoreB > activeMatch.scoreA ? teamB.name : 'Match Tied'} Wins! 🏆
+                      </div>
+                    )}
+
+                    {/* TEAM PENALTY ALERTS */}
+                    {(activeMatch.teamAFouls >= 5 || activeMatch.teamBFouls >= 5) && activeMatch.status !== 'Final' && (
+                      <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3 rounded-2xl text-center font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 animate-pulse">
+                        <AlertTriangle className="w-4 h-4" /> 
+                        {activeMatch.teamAFouls >= 5 && activeMatch.teamBFouls >= 5 ? `BOTH TEAMS IN THE PENALTY (5+ Fouls)` : activeMatch.teamAFouls >= 5 ? `${teamA.name} IS IN THE PENALTY (5+ Fouls)` : `${teamB.name} IS IN THE PENALTY (5+ Fouls)`}
                       </div>
                     )}
 
@@ -1177,7 +1228,9 @@ export default function App() {
                         <p className="text-xs text-slate-400">Coach: {teamA.coachName || 'Staff'}</p>
                         
                         <div className="flex flex-wrap gap-2 pt-2 justify-center lg:justify-start">
-                          <span className="px-2.5 py-1 bg-slate-950 text-amber-400 border border-slate-800 rounded-xl font-mono text-xs font-bold">Team Fouls: {activeMatch.teamAFouls}</span>
+                          <span className={`px-2.5 py-1 rounded-xl font-mono text-xs font-bold border ${activeMatch.teamAFouls >= 5 ? 'bg-red-500/20 text-red-400 border-red-500/40 animate-pulse' : 'bg-slate-950 text-amber-400 border-slate-800'}`}>
+                            Team Fouls: {activeMatch.teamAFouls} {activeMatch.teamAFouls >= 5 ? '(PENALTY)' : ''}
+                          </span>
                           <span className="px-2.5 py-1 bg-slate-950 text-blue-400 border border-slate-800 rounded-xl font-mono text-xs font-bold">Timeouts Left: {activeMatch.timeoutsA}</span>
                           {!isViewer && activeMatch.status !== 'Final' && (
                             <button onClick={() => handleCallTimeout('A')} className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold cursor-pointer transition">Call Timeout</button>
@@ -1185,20 +1238,26 @@ export default function App() {
                         </div>
                       </div>
 
-                      {/* ENLARGED SCOREBOARD & POSSESSION ARROW */}
+                      {/* ENLARGED SCOREBOARD & QUARTER SELECTOR & POSSESSION */}
                       <div className="flex flex-col items-center bg-slate-950 px-8 sm:px-12 py-6 rounded-3xl border-2 border-slate-800 shadow-2xl w-full lg:w-auto space-y-4">
-                        <div className="flex items-center justify-between w-full gap-4">
-                          <span className="text-xs text-amber-400 font-black uppercase tracking-widest">
-                            {currentSportConfig.name} • {activeMatch.court}
-                          </span>
+                        <div className="flex items-center justify-between w-full gap-4 flex-wrap">
                           
+                          {/* QUARTER SELECTOR */}
+                          <div className="flex items-center gap-1.5 bg-slate-900 px-3 py-1 rounded-xl border border-slate-800">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">Period:</span>
+                            <span className="text-xs font-black text-white px-2 py-0.5 bg-blue-600 rounded-md uppercase">{activeMatch.quarter}</span>
+                            {!isViewer && activeMatch.status !== 'Final' && (
+                              <button onClick={handleAdvanceQuarter} className="ml-1 text-[10px] text-blue-400 hover:underline cursor-pointer font-bold">Next ➡</button>
+                            )}
+                          </div>
+
                           {/* POSSESSION ARROW TOGGLE */}
                           <button 
                             onClick={() => setActiveMatch(prev => ({ ...prev, possession: prev.possession === 'A' ? 'B' : 'A' }))}
                             className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-amber-400 border border-slate-800 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition shadow"
                             title="Toggle Ball Possession Arrow"
                           >
-                            <ArrowLeftRight className="w-3.5 h-3.5" /> Possession: <strong className="text-white">{activeMatch.possession === 'A' ? teamA.name : teamB.name}</strong>
+                            <ArrowLeftRight className="w-3.5 h-3.5" /> Poss: <strong className="text-white">{activeMatch.possession === 'A' ? teamA.name : teamB.name}</strong>
                           </button>
                         </div>
                         
@@ -1284,7 +1343,9 @@ export default function App() {
                             <button onClick={() => handleCallTimeout('B')} className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold cursor-pointer transition">Call Timeout</button>
                           )}
                           <span className="px-2.5 py-1 bg-slate-950 text-blue-400 border border-slate-800 rounded-xl font-mono text-xs font-bold">Timeouts Left: {activeMatch.timeoutsB}</span>
-                          <span className="px-2.5 py-1 bg-slate-950 text-cyan-400 border border-slate-800 rounded-xl font-mono text-xs font-bold">Team Fouls: {activeMatch.teamBFouls}</span>
+                          <span className={`px-2.5 py-1 rounded-xl font-mono text-xs font-bold border ${activeMatch.teamBFouls >= 5 ? 'bg-red-500/20 text-red-400 border-red-500/40 animate-pulse' : 'bg-slate-950 text-cyan-400 border-slate-800'}`}>
+                            Team Fouls: {activeMatch.teamBFouls} {activeMatch.teamBFouls >= 5 ? '(PENALTY)' : ''}
+                          </span>
                         </div>
                       </div>
 
