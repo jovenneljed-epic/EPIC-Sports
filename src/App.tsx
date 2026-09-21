@@ -337,6 +337,31 @@ export default function App() {
   const [isClockRunning, setIsClockRunning] = useState(false);
   const timerRef = useRef<number | null>(null);
 
+  // Re-hydrate active match state from Supabase if a live session exists for this match ID
+  useEffect(() => {
+    async function hydrateActiveMatch() {
+      if (!activeMatch?.id) return;
+      try {
+        const { data, error } = await supabase
+          .from('live_active_matches')
+          .select('match_data')
+          .eq('match_id', activeMatch.id)
+          .maybeSingle();
+
+        if (data && data.match_data && !error) {
+          const saved = data.match_data;
+          setActiveMatch(saved);
+          if (typeof saved.gameSeconds === 'number') setGameSeconds(saved.gameSeconds);
+          if (typeof saved.shotClock === 'number') setShotClock(saved.shotClock);
+        }
+      } catch (err) {
+        console.error('Error hydrating active match:', err);
+      }
+    }
+
+    hydrateActiveMatch();
+  }, [activeMatch.id]);
+
   const handleTabChange = (newTab: NavTab) => {
     if (activeTab === 'desk' && activeMatch.status === 'Live') {
       const confirmLeave = window.confirm(
