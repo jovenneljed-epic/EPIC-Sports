@@ -1082,46 +1082,55 @@ export default function App() {
                 )}
 
                 {teamA && teamB && (
-                  <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-6 shadow-2xl relative">
+                  <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative">
                     <div className="flex flex-col lg:flex-row items-center justify-between gap-6 pb-6 border-b border-slate-800">
                       <div className="flex-1 text-center lg:text-left w-full">
-                        <span className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Home</span>
-                        <h2 className="text-2xl font-black text-white truncate">{teamA.name}</h2>
-                        <p className="text-xs text-slate-400">Coach: {teamA.coachName || 'Staff'}</p>
+                        <span className="text-xs font-bold tracking-widest text-slate-400 uppercase">Home Franchise</span>
+                        <h2 className="text-3xl font-black text-white truncate">{teamA.name}</h2>
+                        <p className="text-xs text-slate-400 mt-1">Coach: {teamA.coachName || 'Staff'}</p>
                       </div>
 
-                      <div className="flex flex-col items-center bg-slate-950 px-6 sm:px-8 py-4 rounded-2xl border border-slate-800 shadow-inner w-full lg:w-auto space-y-3">
-                        <span className="text-xs text-amber-400 font-black uppercase tracking-wider text-center">{currentSportConfig.name} • {activeMatch.court} • {activeMatch.status}</span>
-                        <div className="flex items-center gap-6 sm:gap-8">
+                      {/* ENLARGED SCOREBOARD & CLOCKS DISPLAY */}
+                      <div className="flex flex-col items-center bg-slate-950 px-8 sm:px-12 py-6 rounded-3xl border-2 border-slate-800 shadow-2xl w-full lg:w-auto space-y-4">
+                        <span className="text-sm text-amber-400 font-black uppercase tracking-widest text-center">
+                          {currentSportConfig.name} • {activeMatch.court} • <span className="text-emerald-400">{activeMatch.status}</span>
+                        </span>
+                        
+                        {/* Score Numbers Made Massive */}
+                        <div className="flex items-center gap-8 sm:gap-12">
                           <div className="text-center">
-                            <span className="text-[10px] text-slate-500 uppercase tracking-widest block font-bold">Home</span>
-                            <span className="text-5xl sm:text-6xl font-black text-amber-400 tabular-nums">{activeMatch.scoreA}</span>
+                            <span className="text-xs text-slate-500 uppercase tracking-widest block font-bold mb-1">Home</span>
+                            <span className="text-7xl sm:text-8xl lg:text-9xl font-black text-amber-400 tabular-nums tracking-tighter">{activeMatch.scoreA}</span>
                           </div>
-                          <span className="text-slate-700 font-bold text-3xl">:</span>
+                          <span className="text-slate-600 font-black text-5xl sm:text-6xl">:</span>
                           <div className="text-center">
-                            <span className="text-[10px] text-slate-500 uppercase tracking-widest block font-bold">Away</span>
-                            <span className="text-5xl sm:text-6xl font-black text-cyan-400 tabular-nums">{activeMatch.scoreB}</span>
+                            <span className="text-xs text-slate-500 uppercase tracking-widest block font-bold mb-1">Away</span>
+                            <span className="text-7xl sm:text-8xl lg:text-9xl font-black text-cyan-400 tabular-nums tracking-tighter">{activeMatch.scoreB}</span>
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center justify-center gap-4 pt-3 border-t border-slate-800/80 w-full text-xs">
-                          {/* Game Clock with Attendance Lockout Toggle */}
-                          <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
-                            <Clock className="w-4 h-4 text-slate-400" />
-                            <span className="font-mono text-lg font-black text-white">{formatTime(gameSeconds)}</span>
+                        {/* Clocks & Shot Clock Reset Controls Made Prominent */}
+                        <div className="flex flex-wrap items-center justify-center gap-6 pt-4 border-t border-slate-800 w-full">
+                          {/* Game Clock */}
+                          <div className="flex items-center gap-3 bg-slate-900 px-5 py-2.5 rounded-2xl border border-slate-800 shadow-inner">
+                            <Clock className="w-5 h-5 text-amber-400" />
+                            <span className="font-mono text-3xl sm:text-4xl font-black text-white tracking-wider">{formatTime(gameSeconds)}</span>
                             {!isViewer && activeMatch.status !== 'Final' && (
-                              <button type="button" onClick={handleToggleClock} className={`p-1.5 rounded-lg text-slate-950 font-bold cursor-pointer transition ${isClockRunning ? 'bg-amber-400' : 'bg-emerald-400'}`} title={isClockRunning ? 'Pause Game Clock' : 'Start Game Clock'}>
-                                {isClockRunning ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                              <button type="button" onClick={handleToggleClock} className={`p-2 rounded-xl text-slate-950 font-black cursor-pointer transition transform active:scale-95 ${isClockRunning ? 'bg-amber-400 hover:bg-amber-300' : 'bg-emerald-400 hover:bg-emerald-300'}`} title={isClockRunning ? 'Pause Game Clock' : 'Start Game Clock'}>
+                                {isClockRunning ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
                               </button>
                             )}
                           </div>
 
-                          <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
-                            <span className="text-[10px] font-bold text-amber-400 uppercase">Shot:</span>
-                            <span className="font-mono text-lg font-black text-amber-400 w-8 text-center">{shotClock}s</span>
+                          {/* Shot Clock */}
+                          <div className="flex items-center gap-3 bg-slate-900 px-5 py-2.5 rounded-2xl border border-slate-800 shadow-inner">
+                            <span className="text-xs font-black text-amber-400 uppercase tracking-wider">Shot Clock:</span>
+                            <span className={`font-mono text-3xl sm:text-4xl font-black w-14 text-center tracking-wider ${shotClock <= 5 ? 'text-red-400 animate-pulse' : 'text-amber-400'}`}>
+                              {shotClock}s
+                            </span>
                             {!isViewer && activeMatch.status !== 'Final' && (
-                              <div className="flex items-center gap-1 pl-1 border-l border-slate-800">
-                                <button type="button" onClick={() => setShotClock(24)} className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded text-[10px] cursor-pointer" title="Reset Shot Clock to 24s">24</button>
+                              <div className="flex items-center gap-1.5 pl-3 border-l border-slate-800">
+                                <button type="button" onClick={() => setShotClock(24)} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 font-black rounded-xl text-xs cursor-pointer shadow" title="Reset Shot Clock to 24s">24</button>
                               </div>
                             )}
                           </div>
@@ -1129,9 +1138,9 @@ export default function App() {
                       </div>
 
                       <div className="flex-1 text-center lg:text-right w-full">
-                        <span className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Away</span>
-                        <h2 className="text-2xl font-black text-white truncate">{teamB.name}</h2>
-                        <p className="text-xs text-slate-400">Coach: {teamB.coachName || 'Staff'}</p>
+                        <span className="text-xs font-bold tracking-widest text-slate-400 uppercase">Away Franchise</span>
+                        <h2 className="text-3xl font-black text-white truncate">{teamB.name}</h2>
+                        <p className="text-xs text-slate-400 mt-1">Coach: {teamB.coachName || 'Staff'}</p>
                       </div>
                     </div>
 
