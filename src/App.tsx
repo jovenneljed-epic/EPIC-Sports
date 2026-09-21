@@ -598,7 +598,7 @@ export default function App() {
       setShotClock((prev) => {
         if (prev <= 1) {
           arenaAudio.playArenaBuzzer();
-          return 24; // Automatically reset to 24 when shot clock buzzer triggers
+          return 24; 
         }
         return prev - 1;
       });
@@ -648,6 +648,24 @@ export default function App() {
       console.warn('Supabase offline:', err);
     }
   }, []);
+
+  // Safe Timer Toggle Rule: Check if all "On Court" players are unlocked/checked in
+  const handleToggleClock = () => {
+    if (!teamA || !teamB) return;
+
+    const allTeamsPlayers = [...teamA.players, ...teamB.players];
+    const unverifiedOnCourtPlayer = allTeamsPlayers.some((p) => {
+      const st = activeMatch.stats[String(p.id)];
+      return st?.isOnCourt && !st?.isCheckedIn;
+    });
+
+    if (!isClockRunning && unverifiedOnCourtPlayer) {
+      alert('⚠️ ATTENDANCE LOCKOUT: Cannot start timers! All players currently assigned "On Court" must be unlocked via Face Scan or QR Pass first.');
+      return;
+    }
+
+    setIsClockRunning((prev) => !prev);
+  };
 
   const handleScore = useCallback((playerId: string, teamKey: 'A' | 'B', pt: number) => {
     if (currentUser?.role === 'viewer') {
@@ -1087,11 +1105,14 @@ export default function App() {
                         </div>
 
                         <div className="flex flex-wrap items-center justify-center gap-4 pt-3 border-t border-slate-800/80 w-full text-xs">
+                          {/* Game Clock with Attendance Lockout Toggle */}
                           <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
                             <Clock className="w-4 h-4 text-slate-400" />
                             <span className="font-mono text-lg font-black text-white">{formatTime(gameSeconds)}</span>
                             {!isViewer && activeMatch.status !== 'Final' && (
-                              <button type="button" onClick={() => setIsClockRunning((prev) => !prev)} className={`p-1.5 rounded-lg text-slate-950 font-bold cursor-pointer transition ${isClockRunning ? 'bg-amber-400' : 'bg-emerald-400'}`}>{isClockRunning ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}</button>
+                              <button type="button" onClick={handleToggleClock} className={`p-1.5 rounded-lg text-slate-950 font-bold cursor-pointer transition ${isClockRunning ? 'bg-amber-400' : 'bg-emerald-400'}`} title={isClockRunning ? 'Pause Game Clock' : 'Start Game Clock'}>
+                                {isClockRunning ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                              </button>
                             )}
                           </div>
 
