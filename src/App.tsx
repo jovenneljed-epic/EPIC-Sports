@@ -1091,6 +1091,7 @@ export default function App() {
               </div>
             ) : (
               <>
+                {/* MATCHUP HEADER BAR WITH LOCKOUT */}
                 <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800 text-xs shadow-md">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Matchup:</span>
@@ -1100,7 +1101,15 @@ export default function App() {
                       <span className="text-slate-600 text-[10px]">VS</span>
                       <span className="text-white truncate max-w-[120px]">{teamB?.name || 'Away'}</span>
                     </div>
-                    <button type="button" onClick={() => handleTabChange('schedule')} className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-blue-400 border border-slate-700 rounded-lg font-bold text-[11px] cursor-pointer transition flex items-center gap-1"><Calendar className="w-3 h-3" /> Change</button>
+                    <button 
+                      type="button" 
+                      disabled={activeMatch.scoreA > 0 || activeMatch.scoreB > 0 || isClockRunning}
+                      onClick={() => handleTabChange('schedule')} 
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-blue-400 border border-slate-700 rounded-lg font-bold text-[11px] cursor-pointer transition flex items-center gap-1"
+                      title={activeMatch.scoreA > 0 || activeMatch.scoreB > 0 || isClockRunning ? "Match in progress: Matchup is locked to prevent score resets." : "Change Matchup"}
+                    >
+                      <Calendar className="w-3 h-3" /> {(activeMatch.scoreA > 0 || activeMatch.scoreB > 0 || isClockRunning) ? 'Match Locked' : 'Change'}
+                    </button>
                   </div>
                 </div>
 
