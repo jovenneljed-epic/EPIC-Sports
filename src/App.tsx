@@ -649,8 +649,7 @@ export default function App() {
       setShotClock((prev) => {
         if (prev <= 1) {
           arenaAudio.playArenaBuzzer();
-          setIsClockRunning(false);
-          return 0;
+          return 14; // Automatically reset to 14 when shot clock buzzer triggers
         }
         return prev - 1;
       });
@@ -821,7 +820,7 @@ export default function App() {
   const teamB = useMemo(() => teams.find((t) => t.id === activeMatch.teamBId), [teams, activeMatch.teamBId]);
   const currentSportConfig = SPORT_CONFIGS[activeMatch.sportType || 'basketball'];
 
- // Authentication & Hybrid Gate Check
+  // Authentication & Court Token Gate Check
   if (!currentUser && !authenticatedGameToken) {
     return (
       <GameLoginGate 
@@ -1270,22 +1269,58 @@ export default function App() {
                         <p className="text-xs text-slate-400">Coach: {teamA.coachName || 'Staff'}</p>
                       </div>
 
-                      <div className="flex flex-col items-center bg-slate-950 px-6 sm:px-8 py-4 rounded-2xl border border-slate-800 shadow-inner w-full lg:w-auto">
-                        <span className="text-xs text-amber-400 font-black uppercase mb-1 tracking-wider text-center">{currentSportConfig.name} • {activeMatch.court} • {activeMatch.status}</span>
-                        <div className="flex items-center gap-6 sm:gap-8 mb-3">
-                          <span className="text-5xl sm:text-6xl font-black text-amber-400 tabular-nums">{activeMatch.scoreA}</span>
+                      {/* Scoreboard and Clocks Cluster */}
+                      <div className="flex flex-col items-center bg-slate-950 px-6 sm:px-8 py-4 rounded-2xl border border-slate-800 shadow-inner w-full lg:w-auto space-y-3">
+                        <span className="text-xs text-amber-400 font-black uppercase tracking-wider text-center">{currentSportConfig.name} • {activeMatch.court} • {activeMatch.status}</span>
+                        <div className="flex items-center gap-6 sm:gap-8">
+                          <div className="text-center">
+                            <span className="text-[10px] text-slate-500 uppercase tracking-widest block font-bold">Home</span>
+                            <span className="text-5xl sm:text-6xl font-black text-amber-400 tabular-nums">{activeMatch.scoreA}</span>
+                          </div>
                           <span className="text-slate-700 font-bold text-3xl">:</span>
-                          <span className="text-5xl sm:text-6xl font-black text-cyan-400 tabular-nums">{activeMatch.scoreB}</span>
+                          <div className="text-center">
+                            <span className="text-[10px] text-slate-500 uppercase tracking-widest block font-bold">Away</span>
+                            <span className="text-5xl sm:text-6xl font-black text-cyan-400 tabular-nums">{activeMatch.scoreB}</span>
+                          </div>
                         </div>
 
-                        <div className="flex flex-wrap items-center justify-center gap-4 pt-3 border-t border-slate-800/80 w-full">
-                          <div className="flex items-center gap-2">
+                        {/* Clocks & Shot Clock Reset Controls */}
+                        <div className="flex flex-wrap items-center justify-center gap-4 pt-3 border-t border-slate-800/80 w-full text-xs">
+                          {/* Game Clock */}
+                          <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
                             <Clock className="w-4 h-4 text-slate-400" />
-                            <span className="font-mono text-xl font-black text-white">{formatTime(gameSeconds)}</span>
+                            <span className="font-mono text-lg font-black text-white">{formatTime(gameSeconds)}</span>
                             {!isViewer && activeMatch.status !== 'Final' && (
                               <button type="button" onClick={() => setIsClockRunning((prev) => !prev)} className={`p-1.5 rounded-lg text-slate-950 font-bold cursor-pointer transition ${isClockRunning ? 'bg-amber-400' : 'bg-emerald-400'}`}>
                                 {isClockRunning ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
                               </button>
+                            )}
+                          </div>
+
+                          {/* Shot Clock with Reset Buttons */}
+                          <div className="flex items-center gap-2 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
+                            <span className="text-[10px] font-bold text-amber-400 uppercase">Shot:</span>
+                            <span className="font-mono text-lg font-black text-amber-400 w-8 text-center">{shotClock}s</span>
+                            
+                            {!isViewer && activeMatch.status !== 'Final' && (
+                              <div className="flex items-center gap-1 pl-1 border-l border-slate-800">
+                                <button
+                                  type="button"
+                                  onClick={() => setShotClock(gameSettings.shotClockSeconds)}
+                                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded text-[10px] cursor-pointer"
+                                  title="Reset Shot Clock to 24s"
+                                >
+                                  24
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setShotClock(gameSettings.offensiveReboundShotClock || 14)}
+                                  className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold rounded text-[10px] cursor-pointer"
+                                  title="Reset Shot Clock to 14s"
+                                >
+                                  14
+                                </button>
+                              </div>
                             )}
                           </div>
                         </div>
