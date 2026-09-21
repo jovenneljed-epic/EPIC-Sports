@@ -713,11 +713,14 @@ export default function App() {
 
       arenaAudio.playSwish();
 
-      const teamName = (teamKey === 'A' ? teams.find(t => t.id === prev.teamAId)?.name : teams.find(t => t.id === prev.teamBId)?.name) || 'Team';
+      const targetTeam = teamKey === 'A' ? teams.find(t => t.id === prev.teamAId) : teams.find(t => t.id === prev.teamBId);
+      const playerObj = targetTeam?.players.find(p => String(p.id) === idKey);
+      const playerName = playerObj ? playerObj.name : 'Player';
+
       const logEntry: PlayLog = {
         id: `log_${Date.now()}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        description: `${teamName} scored +${pt}pt(s)`,
+        description: `${playerName} scored +${pt}pt(s)`,
       };
 
       return {
@@ -757,12 +760,15 @@ export default function App() {
       const fouledOut = nextFouls >= gameSettings.foulDisqualificationLimit;
       const nextTeamAFouls = teamKey === 'A' ? prev.teamAFouls + 1 : prev.teamAFouls;
       const nextTeamBFouls = teamKey === 'B' ? prev.teamBFouls + 1 : prev.teamBFouls;
-      const teamName = (teamKey === 'A' ? teams.find(t => t.id === prev.teamAId)?.name : teams.find(t => t.id === prev.teamBId)?.name) || 'Team';
+
+      const targetTeam = teamKey === 'A' ? teams.find(t => t.id === prev.teamAId) : teams.find(t => t.id === prev.teamBId);
+      const playerObj = targetTeam?.players.find(p => String(p.id) === idKey);
+      const playerName = playerObj ? playerObj.name : 'Player';
 
       const logEntry: PlayLog = {
         id: `log_${Date.now()}`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        description: `Personal foul called on ${teamName} player`,
+        description: `Personal foul called on ${playerName} (${nextFouls} foul${nextFouls > 1 ? 's' : ''})`,
       };
 
       return {
@@ -1269,6 +1275,28 @@ export default function App() {
                     ))}
                   </div>
                 )}
+
+                {/* LIVE PLAY-BY-PLAY AUDIT FEED DISPLAYED DIRECTLY ON DESK */}
+                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-3 mt-6">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                    <h3 className="text-xs font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                      <FileText className="w-4 h-4" /> Live Play-by-Play & Audit Log
+                    </h3>
+                    <span className="text-[10px] text-slate-400 font-mono">Real-time tracking active</span>
+                  </div>
+                  <div className="bg-slate-950 p-4 rounded-2xl border border-slate-900 h-44 overflow-y-auto space-y-2 font-mono text-xs text-slate-300">
+                    {activeMatch.logs && activeMatch.logs.length > 0 ? (
+                      activeMatch.logs.map((log) => (
+                        <div key={log.id} className="flex gap-3 items-start border-b border-slate-900/50 pb-1.5">
+                          <span className="text-amber-400 font-bold flex-shrink-0">[{log.timestamp}]</span>
+                          <span className="text-white font-medium">{log.description}</span>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-slate-600 italic text-center py-12">Match actions (player scores & fouls) will stream here in real time...</div>
+                    )}
+                  </div>
+                </div>
               </>
             )}
           </div>
